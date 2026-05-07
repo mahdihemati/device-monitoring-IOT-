@@ -14,7 +14,7 @@ Laravel + MySQL backend with a React, TypeScript, Vite, Tailwind CSS frontend fo
 
 ## Setup
 
-Install PHP 8.3+, Composer, Node.js, npm, and MySQL.
+Install PHP 8.3+, Composer, Node.js, npm, and MySQL. The current `composer.json` requires PHP 8.3 or newer.
 
 ```bash
 composer install
@@ -59,6 +59,8 @@ npm run build
 ## Telemetry Ingestion
 
 The frontend never connects to MQTT. It only reads Laravel APIs. Telemetry can enter through the HTTP endpoint or the MQTT listener; both paths use the same parser and ingestion service.
+
+For now, ingestion is protected by `INGESTION_SECRET` through the `X-Ingestion-Secret` header. The authentication code is isolated so it can later support per-device API keys without changing controllers or the frontend.
 
 Expected temporary payload:
 
@@ -141,6 +143,22 @@ Ingestion:
 - `POST /api/ingest/telemetry`
 
 Logged-in users only receive devices where `devices.customer_id` matches their `users.customer_id`.
+
+Simple MVP rate limits are enabled for login and ingestion. Tune these values in `.env` if needed:
+
+```dotenv
+LOGIN_RATE_LIMIT_PER_MINUTE=5
+INGESTION_RATE_LIMIT_PER_MINUTE=120
+```
+
+## Production Checklist
+
+- Set `APP_DEBUG=false`.
+- Use a strong, random `INGESTION_SECRET`.
+- Serve the dashboard over HTTPS.
+- Run `npm run build`.
+- Run `php artisan config:cache route:cache view:cache`.
+- Confirm whether `php artisan mqtt:listen` can run continuously on the target host; if not, use an external MQTT bridge that posts to `POST /api/ingest/telemetry`.
 
 ## Real Payload Adjustment
 

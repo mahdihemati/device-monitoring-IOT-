@@ -39,4 +39,9 @@ return [
         'secret' => env('INGESTION_SECRET'),
     ],
 
+    'rate_limits' => [
+        'login_per_minute' => env('LOGIN_RATE_LIMIT_PER_MINUTE', 5),
+        'ingestion_per_minute' => env('INGESTION_RATE_LIMIT_PER_MINUTE', 120),
+    ],
+
 ];

@@ -39,6 +39,9 @@ class Device extends Model
 
     public function latestTelemetry(): HasOne
     {
-        return $this->hasOne(Telemetry::class)->latestOfMany();
+        return $this->hasOne(Telemetry::class)
+            ->orderByRaw('recorded_at is null asc')
+            ->latest('recorded_at')
+            ->latest('id');
     }
 }

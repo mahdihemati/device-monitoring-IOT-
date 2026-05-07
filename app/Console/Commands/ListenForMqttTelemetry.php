@@ -55,7 +55,7 @@ class ListenForMqttTelemetry extends Command
 
                     $telemetry = $ingestionService->ingest($payload);
 
-                    $this->info("Stored telemetry #{$telemetry->id} from {$payload['device_code']}.");
+                    $this->info("Stored telemetry #{$telemetry->id} from {$telemetry->device->device_code}.");
 
                     if ($this->option('once')) {
                         $mqtt->interrupt();

@@ -27,7 +27,6 @@ export interface Telemetry {
 
 export interface Device {
     id: number;
-    customer_id: number;
     device_code: string;
     name: string;
     serial_number: string | null;

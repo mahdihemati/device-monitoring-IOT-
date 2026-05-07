@@ -49,6 +49,7 @@ class DeviceController extends Controller
         $limit = max(1, min((int) $request->integer('limit', 100), 300));
 
         $history = $device->telemetry()
+            ->orderByRaw('recorded_at is null asc')
             ->latest('recorded_at')
             ->latest('id')
             ->limit($limit)
@@ -69,7 +70,6 @@ class DeviceController extends Controller
     {
         return [
             'id' => $device->id,
-            'customer_id' => $device->customer_id,
             'device_code' => $device->device_code,
             'name' => $device->name,
             'serial_number' => $device->serial_number,

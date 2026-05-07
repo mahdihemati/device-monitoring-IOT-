@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\TelemetryIngestController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('api')->group(function (): void {
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth');
     Route::get('/me', [AuthController::class, 'me'])->middleware('auth');
 
@@ -17,7 +17,7 @@ Route::prefix('api')->group(function (): void {
         Route::get('/devices/{device}/history', [DeviceController::class, 'history']);
     });
 
-    Route::post('/ingest/telemetry', TelemetryIngestController::class);
+    Route::post('/ingest/telemetry', TelemetryIngestController::class)->middleware('throttle:ingestion');
 });
 
 Route::view('/{path?}', 'app')->where('path', '^(?!api).*$');
