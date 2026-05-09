@@ -1,6 +1,6 @@
-import type { Device, Telemetry } from '../types';
+import type { Device, OverallStatus, Telemetry } from '../types';
 
-export type RefrigeratorStatusLevel = 'normal' | 'warning' | 'critical' | 'offline';
+export type RefrigeratorStatusLevel = OverallStatus;
 
 interface RefrigeratorStatus {
     level: RefrigeratorStatusLevel;
@@ -49,6 +49,10 @@ function isPowerNormal(value: string | null): boolean {
 }
 
 export function getRefrigeratorStatus(device: Device): RefrigeratorStatus {
+    if (device.overall_status) {
+        return statusFromOverallStatus(device.overall_status, device.active_alarm_count ?? 0);
+    }
+
     const latest = device.latest_telemetry;
     const doorStatus = normalize(latest?.door_status ?? null);
     const powerStatus = normalize(latest?.pf_status ?? null);
@@ -90,6 +94,41 @@ export function getRefrigeratorStatus(device: Device): RefrigeratorStatus {
         label: 'Normal',
         detail: 'Reporting normally',
     };
+}
+
+function statusFromOverallStatus(level: OverallStatus, activeAlarmCount: number): RefrigeratorStatus {
+    const alarmDetail = activeAlarmCount === 1 ? '1 active alarm' : `${activeAlarmCount} active alarms`;
+
+    return matchStatus(level, alarmDetail);
+}
+
+function matchStatus(level: OverallStatus, alarmDetail: string): RefrigeratorStatus {
+    switch (level) {
+        case 'normal':
+            return {
+                level,
+                label: 'Normal',
+                detail: 'No active alarms',
+            };
+        case 'warning':
+            return {
+                level,
+                label: 'Warning',
+                detail: alarmDetail,
+            };
+        case 'critical':
+            return {
+                level,
+                label: 'Critical',
+                detail: alarmDetail,
+            };
+        case 'offline':
+            return {
+                level,
+                label: 'Offline',
+                detail: alarmDetail === '0 active alarms' ? `No recent telemetry in ${OFFLINE_AFTER_MINUTES}+ minutes` : alarmDetail,
+            };
+    }
 }
 
 export function countRefrigeratorStatuses(devices: Device[]): Record<RefrigeratorStatusLevel, number> {

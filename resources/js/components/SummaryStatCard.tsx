@@ -7,6 +7,7 @@ interface SummaryStatCardProps {
     value: number;
     tone: SummaryTone;
     icon: ReactNode;
+    description?: string;
 }
 
 const toneStyles: Record<SummaryTone, string> = {
@@ -17,13 +18,14 @@ const toneStyles: Record<SummaryTone, string> = {
     offline: 'border-slate-300 bg-slate-100 text-slate-600',
 };
 
-export function SummaryStatCard({ label, value, tone, icon }: SummaryStatCardProps) {
+export function SummaryStatCard({ label, value, tone, icon, description }: SummaryStatCardProps) {
     return (
         <article className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <p className="text-sm font-medium text-slate-500">{label}</p>
                     <p className="mt-2 text-3xl font-semibold leading-none text-slate-950">{value}</p>
+                    {description ? <p className="mt-2 text-xs font-medium text-slate-500">{description}</p> : null}
                 </div>
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border ${toneStyles[tone]}`}>
                     {icon}

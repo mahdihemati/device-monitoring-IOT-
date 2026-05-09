@@ -1,4 +1,13 @@
 export type StatusValue = string | null;
+export type OverallStatus = 'normal' | 'warning' | 'critical' | 'offline';
+export type AlarmSeverity = 'warning' | 'critical';
+export type AlarmType =
+    | 'HIGH_TEMPERATURE'
+    | 'LOW_TEMPERATURE'
+    | 'DOOR_OPEN'
+    | 'PF_FAULT'
+    | 'DEVICE_OFFLINE'
+    | 'INVALID_SENSOR_READING';
 
 export interface Customer {
     id: number;
@@ -32,6 +41,30 @@ export interface Device {
     serial_number: string | null;
     last_seen_at: string | null;
     latest_telemetry: Telemetry | null;
+    overall_status?: OverallStatus;
+    active_alarm_count?: number;
+}
+
+export interface AlarmDevice {
+    id: number;
+    device_code: string;
+    name: string;
+}
+
+export interface Alarm {
+    id: number;
+    device_id: number;
+    type: AlarmType;
+    severity: AlarmSeverity;
+    message: string;
+    value: number | null;
+    threshold: number | null;
+    is_resolved: boolean;
+    resolved_at: string | null;
+    triggered_at: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+    device: AlarmDevice;
 }
 
 export interface ApiErrorBody {

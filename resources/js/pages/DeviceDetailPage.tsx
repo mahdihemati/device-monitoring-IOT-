@@ -12,11 +12,12 @@ import {
     YAxis,
 } from 'recharts';
 import { api, getErrorMessage } from '../api/client';
+import { AlarmList } from '../components/AlarmList';
 import { MetricTile } from '../components/MetricTile';
 import { OverallStatusBadge } from '../components/OverallStatusBadge';
 import { EmptyState, ErrorBanner, LoadingState } from '../components/StateBlocks';
 import { StatusBadge } from '../components/StatusBadge';
-import type { Device, Telemetry } from '../types';
+import type { Alarm, Device, Telemetry } from '../types';
 import { chartTime, formatLongDateTime, formatTemperature } from '../utils/format';
 import { getRefrigeratorStatus } from '../utils/refrigeratorStatus';
 
@@ -25,6 +26,8 @@ export function DeviceDetailPage() {
     const [device, setDevice] = useState<Device | null>(null);
     const [latest, setLatest] = useState<Telemetry | null>(null);
     const [history, setHistory] = useState<Telemetry[]>([]);
+    const [alarms, setAlarms] = useState<Alarm[]>([]);
+    const [resolvingAlarmIds, setResolvingAlarmIds] = useState<Set<number>>(() => new Set());
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -39,15 +42,17 @@ export function DeviceDetailPage() {
         }
 
         try {
-            const [deviceResponse, latestResponse, historyResponse] = await Promise.all([
+            const [deviceResponse, latestResponse, historyResponse, alarmsResponse] = await Promise.all([
                 api.get<{ device: Device }>(`/devices/${deviceId}`),
                 api.get<{ telemetry: Telemetry | null }>(`/devices/${deviceId}/latest`),
                 api.get<{ telemetry: Telemetry[] }>(`/devices/${deviceId}/history`, { params: { limit: 120 } }),
+                api.get<{ alarms: Alarm[] }>('/alarms', { params: { device_id: deviceId, limit: 30 } }),
             ]);
 
             setDevice(deviceResponse.data.device);
             setLatest(latestResponse.data.telemetry);
             setHistory(historyResponse.data.telemetry);
+            setAlarms(alarmsResponse.data.alarms);
             setError(null);
         } catch (caughtError) {
             setError(getErrorMessage(caughtError));
@@ -56,6 +61,24 @@ export function DeviceDetailPage() {
             setRefreshing(false);
         }
     }, [deviceId]);
+
+    const resolveAlarm = useCallback(async (alarmId: number) => {
+        setResolvingAlarmIds((current) => new Set(current).add(alarmId));
+
+        try {
+            await api.post(`/alarms/${alarmId}/resolve`);
+            await fetchDeviceData(true);
+        } catch (caughtError) {
+            setError(getErrorMessage(caughtError));
+        } finally {
+            setResolvingAlarmIds((current) => {
+                const next = new Set(current);
+                next.delete(alarmId);
+
+                return next;
+            });
+        }
+    }, [fetchDeviceData]);
 
     useEffect(() => {
         void fetchDeviceData();
@@ -75,6 +98,9 @@ export function DeviceDetailPage() {
         temperature_4: item.temperature_4,
     })), [history]);
 
+    const activeAlarms = useMemo(() => alarms.filter((alarm) => ! alarm.is_resolved), [alarms]);
+    const resolvedAlarms = useMemo(() => alarms.filter((alarm) => alarm.is_resolved), [alarms]);
+
     if (loading) {
         return <LoadingState label="Loading refrigerator" />;
     }
@@ -92,9 +118,10 @@ export function DeviceDetailPage() {
     }
 
     const status = getRefrigeratorStatus(device);
+    const latestRecordedAt = latest?.recorded_at ?? device.last_seen_at;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                     <Link to="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-slate-950">
@@ -124,6 +151,7 @@ export function DeviceDetailPage() {
                 </div>
                 <button
                     type="button"
+                    aria-label="Refresh refrigerator detail"
                     onClick={() => void fetchDeviceData(true)}
                     className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-200 hover:text-sky-700 sm:w-auto"
                 >
@@ -134,16 +162,71 @@ export function DeviceDetailPage() {
 
             {error ? <ErrorBanner message={error} /> : null}
 
-            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <MetricTile label="Sensor 1" value={formatTemperature(latest?.temperature_1 ?? null)} emphasis />
-                <MetricTile label="Sensor 2" value={formatTemperature(latest?.temperature_2 ?? null)} emphasis />
-                <MetricTile label="Sensor 3" value={formatTemperature(latest?.temperature_3 ?? null)} emphasis />
-                <MetricTile label="Sensor 4" value={formatTemperature(latest?.temperature_4 ?? null)} emphasis />
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="latest-readings-heading">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                        <h2 id="latest-readings-heading" className="text-lg font-semibold text-slate-950">Latest Sensor Readings</h2>
+                        <p className="mt-1 text-sm text-slate-500">Most recent telemetry received {formatLongDateTime(latestRecordedAt)}.</p>
+                    </div>
+                    <OverallStatusBadge level={status.level} label={status.label} />
+                </div>
+
+                {! latest ? (
+                    <div className="mt-4">
+                        <EmptyState title="No latest telemetry" message="Sensor readings will appear here after the refrigerator sends telemetry." />
+                    </div>
+                ) : null}
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <MetricTile label="Sensor 1" value={formatTemperature(latest?.temperature_1 ?? null)} helper="Current reading" emphasis />
+                    <MetricTile label="Sensor 2" value={formatTemperature(latest?.temperature_2 ?? null)} helper="Current reading" emphasis />
+                    <MetricTile label="Sensor 3" value={formatTemperature(latest?.temperature_3 ?? null)} helper="Current reading" emphasis />
+                    <MetricTile label="Sensor 4" value={formatTemperature(latest?.temperature_4 ?? null)} helper="Current reading" emphasis />
+                </div>
+            </section>
+
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" aria-labelledby="refrigerator-alarms-heading">
+                <div className="border-b border-slate-200 px-4 py-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 id="refrigerator-alarms-heading" className="text-lg font-semibold text-slate-950">Alarms</h2>
+                            <p className="text-sm text-slate-500">Active alarms and recently resolved conditions for this refrigerator.</p>
+                        </div>
+                        <span className="text-xs font-semibold uppercase text-slate-500">{activeAlarms.length} active</span>
+                    </div>
+                </div>
+
+                <div className="grid gap-0 lg:grid-cols-2 lg:divide-x lg:divide-slate-100">
+                    <div>
+                        <div className="border-b border-slate-100 px-4 py-3">
+                            <h3 className="text-sm font-semibold text-slate-950">Active</h3>
+                        </div>
+                        <AlarmList
+                            alarms={activeAlarms}
+                            emptyTitle="No active alarms"
+                            emptyMessage="This refrigerator has no active alarm conditions."
+                            onResolve={(alarmId) => void resolveAlarm(alarmId)}
+                            resolvingIds={resolvingAlarmIds}
+                            showDevice={false}
+                        />
+                    </div>
+                    <div>
+                        <div className="border-b border-slate-100 px-4 py-3">
+                            <h3 className="text-sm font-semibold text-slate-950">Recently Resolved</h3>
+                        </div>
+                        <AlarmList
+                            alarms={resolvedAlarms}
+                            emptyTitle="No resolved alarms"
+                            emptyMessage="Resolved alarms will appear here after conditions return to normal or are acknowledged."
+                            showDevice={false}
+                        />
+                    </div>
+                </div>
             </section>
 
             <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-                <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <h2 className="text-base font-semibold text-slate-950">Sensor Temperature History</h2>
                             <p className="text-sm text-slate-500">Last {chartData.length} readings</p>
@@ -153,12 +236,12 @@ export function DeviceDetailPage() {
                     {chartData.length === 0 ? (
                         <EmptyState title="No chart data" message="Telemetry readings will be plotted after ingestion." />
                     ) : (
-                        <div className="h-72 w-full sm:h-80">
+                        <div className="h-72 w-full overflow-hidden sm:h-80" aria-label="Sensor temperature chart">
                             <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={chartData} margin={{ top: 8, right: 16, left: -12, bottom: 8 }}>
+                                <LineChart data={chartData} margin={{ top: 8, right: 8, left: -18, bottom: 8 }}>
                                     <CartesianGrid stroke="#e2e8f0" strokeDasharray="4 4" />
-                                    <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 12 }} tickMargin={10} />
-                                    <YAxis tick={{ fill: '#64748b', fontSize: 12 }} tickMargin={10} width={38} />
+                                    <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 11 }} tickMargin={10} minTickGap={20} />
+                                    <YAxis tick={{ fill: '#64748b', fontSize: 11 }} tickMargin={8} width={38} />
                                     <Tooltip
                                         contentStyle={{
                                             borderRadius: 8,
@@ -177,10 +260,10 @@ export function DeviceDetailPage() {
                     )}
                 </div>
 
-                <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <aside className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="latest-status-heading">
                     <div className="flex items-start justify-between gap-3">
                         <div>
-                            <h2 className="text-base font-semibold text-slate-950">Latest Status</h2>
+                            <h2 id="latest-status-heading" className="text-base font-semibold text-slate-950">Door and PF Status</h2>
                             <p className="mt-1 text-sm text-slate-500">Door, PF, and reporting state.</p>
                         </div>
                         <OverallStatusBadge level={status.level} label={status.label} />
@@ -210,9 +293,15 @@ export function DeviceDetailPage() {
                 </aside>
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+            <section className="rounded-lg border border-slate-200 bg-white shadow-sm" aria-labelledby="recent-history-heading">
                 <div className="border-b border-slate-200 px-4 py-3">
-                    <h2 className="text-base font-semibold text-slate-950">Recent history</h2>
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 id="recent-history-heading" className="text-base font-semibold text-slate-950">Recent History</h2>
+                            <p className="text-sm text-slate-500">Latest {history.length} telemetry records.</p>
+                        </div>
+                        <span className="text-xs font-semibold uppercase text-slate-500">Telemetry Records</span>
+                    </div>
                 </div>
 
                 {history.length === 0 ? (
@@ -235,7 +324,7 @@ export function DeviceDetailPage() {
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
                                 {history.map((item) => (
-                                    <tr key={item.id}>
+                                    <tr key={item.id} className="hover:bg-slate-50">
                                         <td className="whitespace-nowrap px-4 py-3 text-slate-700">{formatLongDateTime(item.recorded_at)}</td>
                                         <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">{formatTemperature(item.temperature_1)}</td>
                                         <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">{formatTemperature(item.temperature_2)}</td>

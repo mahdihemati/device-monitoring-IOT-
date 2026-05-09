@@ -37,6 +37,16 @@ class Device extends Model
         return $this->hasMany(Telemetry::class);
     }
 
+    public function alarms(): HasMany
+    {
+        return $this->hasMany(Alarm::class);
+    }
+
+    public function activeAlarms(): HasMany
+    {
+        return $this->hasMany(Alarm::class)->where('is_resolved', false);
+    }
+
     public function latestTelemetry(): HasOne
     {
         return $this->hasOne(Telemetry::class)

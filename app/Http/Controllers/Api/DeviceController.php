@@ -5,22 +5,31 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Device;
 use App\Models\Telemetry;
+use App\Services\Alarms\AlarmEvaluationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class DeviceController extends Controller
 {
+    public function __construct(
+        private readonly AlarmEvaluationService $alarmEvaluationService,
+    ) {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $devices = Device::query()
             ->where('customer_id', $request->user()->customer_id)
             ->with('latestTelemetry')
             ->orderBy('name')
-            ->get()
-            ->map(fn (Device $device): array => $this->devicePayload($device));
+            ->get();
+
+        $this->alarmEvaluationService->evaluateConnectivityForDevices($devices);
+
+        $devices->load('activeAlarms')->loadCount('activeAlarms');
 
         return response()->json([
-            'devices' => $devices,
+            'devices' => $devices->map(fn (Device $device): array => $this->devicePayload($device)),
         ]);
     }
 
@@ -28,8 +37,11 @@ class DeviceController extends Controller
     {
         $this->abortIfDeviceIsNotOwnedByUser($request, $device);
 
+        $this->alarmEvaluationService->evaluateConnectivity($device);
+        $device->load('latestTelemetry', 'activeAlarms')->loadCount('activeAlarms');
+
         return response()->json([
-            'device' => $this->devicePayload($device->load('latestTelemetry')),
+            'device' => $this->devicePayload($device),
         ]);
     }
 
@@ -75,6 +87,8 @@ class DeviceController extends Controller
             'serial_number' => $device->serial_number,
             'last_seen_at' => $device->last_seen_at?->toISOString(),
             'latest_telemetry' => $this->telemetryPayload($device->latestTelemetry),
+            'overall_status' => $this->alarmEvaluationService->overallStatus($device),
+            'active_alarm_count' => $device->getAttribute('active_alarms_count') ?? $device->activeAlarms()->count(),
         ];
     }
 

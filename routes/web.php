@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AlarmController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\TelemetryIngestController;
@@ -15,6 +16,9 @@ Route::prefix('api')->group(function (): void {
         Route::get('/devices/{device}', [DeviceController::class, 'show']);
         Route::get('/devices/{device}/latest', [DeviceController::class, 'latest']);
         Route::get('/devices/{device}/history', [DeviceController::class, 'history']);
+        Route::get('/alarms', [AlarmController::class, 'index']);
+        Route::get('/alarms/active', [AlarmController::class, 'active']);
+        Route::post('/alarms/{alarm}/resolve', [AlarmController::class, 'resolve']);
     });
 
     Route::post('/ingest/telemetry', TelemetryIngestController::class)->middleware('throttle:ingestion');

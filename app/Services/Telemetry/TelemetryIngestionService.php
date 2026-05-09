@@ -4,6 +4,7 @@ namespace App\Services\Telemetry;
 
 use App\Models\Device;
 use App\Models\Telemetry;
+use App\Services\Alarms\AlarmEvaluationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -11,6 +12,7 @@ class TelemetryIngestionService
 {
     public function __construct(
         private readonly TelemetryPayloadParser $parser,
+        private readonly AlarmEvaluationService $alarmEvaluationService,
     ) {
     }
 
@@ -40,6 +42,8 @@ class TelemetryIngestionService
             $device->forceFill([
                 'last_seen_at' => $recordedAt,
             ])->save();
+
+            $this->alarmEvaluationService->evaluateTelemetry($device, $telemetry);
 
             return $telemetry->load('device');
         });

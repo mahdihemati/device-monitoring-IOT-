@@ -40,3 +40,11 @@ export function chartTime(value: string | null): string {
         minute: '2-digit',
     }).format(new Date(value));
 }
+
+export function formatAlarmType(value: string): string {
+    return value
+        .toLowerCase()
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
