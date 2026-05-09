@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { LockKeyhole, MonitorDot } from 'lucide-react';
+import { LockKeyhole, Thermometer } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 import { getErrorMessage } from '../api/client';
 import { ErrorBanner } from '../components/StateBlocks';
@@ -35,11 +35,11 @@ export function LoginPage() {
             <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/80">
                 <div className="flex items-center gap-3">
                     <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-900 text-white">
-                        <MonitorDot className="h-5 w-5" aria-hidden="true" />
+                        <Thermometer className="h-5 w-5" aria-hidden="true" />
                     </span>
                     <div>
-                        <h1 className="text-xl font-semibold text-slate-950">Device Monitor</h1>
-                        <p className="text-sm text-slate-500">Login</p>
+                        <h1 className="text-xl font-semibold text-slate-950">Blood Refrigerator Monitor</h1>
+                        <p className="text-sm text-slate-500">Organization login</p>
                     </div>
                 </div>
 
