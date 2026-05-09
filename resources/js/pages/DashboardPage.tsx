@@ -65,6 +65,7 @@ function getOverviewState(total: number, counts: Record<RefrigeratorStatusLevel,
 export function DashboardPage() {
     const [devices, setDevices] = useState<Device[]>([]);
     const [activeAlarms, setActiveAlarms] = useState<Alarm[]>([]);
+    const [recentAlarms, setRecentAlarms] = useState<Alarm[]>([]);
     const [resolvingAlarmIds, setResolvingAlarmIds] = useState<Set<number>>(() => new Set());
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -76,13 +77,15 @@ export function DashboardPage() {
         }
 
         try {
-            const [devicesResponse, alarmsResponse] = await Promise.all([
+            const [devicesResponse, alarmsResponse, recentAlarmsResponse] = await Promise.all([
                 api.get<{ devices: Device[] }>('/devices'),
                 api.get<{ alarms: Alarm[] }>('/alarms/active'),
+                api.get<{ alarms: Alarm[] }>('/alarms', { params: { status: 'all', limit: 8 } }),
             ]);
 
             setDevices(devicesResponse.data.devices);
             setActiveAlarms(alarmsResponse.data.alarms);
+            setRecentAlarms(recentAlarmsResponse.data.alarms);
             setError(null);
         } catch (caughtError) {
             setError(getErrorMessage(caughtError));
@@ -230,6 +233,23 @@ export function DashboardPage() {
                     emptyMessage="All monitored refrigerators are clear of active alarms."
                     onResolve={(alarmId) => void resolveAlarm(alarmId)}
                     resolvingIds={resolvingAlarmIds}
+                />
+            </section>
+
+            <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" aria-labelledby="recent-alarm-events-heading">
+                <div className="border-b border-slate-200 px-4 py-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 id="recent-alarm-events-heading" className="text-lg font-semibold text-slate-950">Recent Alarm Events</h2>
+                            <p className="text-sm text-slate-500">Latest active and resolved alarm events for this organization.</p>
+                        </div>
+                        <span className="text-xs font-semibold uppercase text-slate-500">Latest {recentAlarms.length}</span>
+                    </div>
+                </div>
+                <AlarmList
+                    alarms={recentAlarms}
+                    emptyTitle="No alarm events"
+                    emptyMessage="Alarm events will appear here after warning or critical conditions are detected."
                 />
             </section>
 

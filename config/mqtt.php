@@ -10,4 +10,10 @@ return [
     'qos' => env('MQTT_QOS', 0),
     'keep_alive' => env('MQTT_KEEP_ALIVE', 60),
     'use_tls' => env('MQTT_USE_TLS', false),
+    'device_code_topic_regex' => env('MQTT_DEVICE_CODE_TOPIC_REGEX'),
+    'device_code_topic_patterns' => [
+        'refrigerators/{device_code}/telemetry',
+        'devices/{device_code}/telemetry',
+        'clients/{client_code}/refrigerators/{device_code}/telemetry',
+    ],
 ];

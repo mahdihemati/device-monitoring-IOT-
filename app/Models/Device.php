@@ -17,6 +17,8 @@ class Device extends Model
         'device_code',
         'name',
         'serial_number',
+        'location',
+        'notes',
         'last_seen_at',
     ];
 

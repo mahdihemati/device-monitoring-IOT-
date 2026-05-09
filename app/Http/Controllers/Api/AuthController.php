@@ -57,10 +57,15 @@ class AuthController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'username' => $user->username,
-            'customer' => [
+            'role' => $user->role,
+            'customer' => $user->customer ? [
                 'id' => $user->customer->id,
                 'name' => $user->customer->name,
-            ],
+                'contact_name' => $user->customer->contact_name,
+                'phone' => $user->customer->phone,
+                'email' => $user->customer->email,
+                'notes' => $user->customer->notes,
+            ] : null,
         ];
     }
 }

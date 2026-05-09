@@ -12,25 +12,45 @@ class TelemetryPayloadParser
 {
     /**
      * Update this map when the real device JSON format arrives.
-     * Values may be plain keys or Laravel dot paths for nested payloads.
+     * Values may be plain keys, Laravel dot paths, or common aliases.
      */
     private array $fieldMap = [
-        'device_code' => 'device_code',
-        'temperature_1' => 'temperature_1',
-        'temperature_2' => 'temperature_2',
-        'temperature_3' => 'temperature_3',
-        'temperature_4' => 'temperature_4',
-        'door_status' => 'door_status',
-        'pf_status' => 'pf_status',
-        'timestamp' => 'timestamp',
+        'device_code' => [
+            'device_code',
+            'device_id',
+            'serial',
+            'refrigerator_id',
+            'refrigerator_code',
+            'device.code',
+            'device.id',
+            'refrigerator.code',
+            'refrigerator.id',
+        ],
+        'temperature_1' => ['temperature_1', 't1', 'temp1', 'sensor1', 'sensors.0', 'sensors.1', 'sensors.sensor1', 'temperatures.0', 'temperatures.1'],
+        'temperature_2' => ['temperature_2', 't2', 'temp2', 'sensor2', 'sensors.1', 'sensors.2', 'sensors.sensor2', 'temperatures.1', 'temperatures.2'],
+        'temperature_3' => ['temperature_3', 't3', 'temp3', 'sensor3', 'sensors.2', 'sensors.3', 'sensors.sensor3', 'temperatures.2', 'temperatures.3'],
+        'temperature_4' => ['temperature_4', 't4', 'temp4', 'sensor4', 'sensors.3', 'sensors.4', 'sensors.sensor4', 'temperatures.3', 'temperatures.4'],
+        'door_status' => ['door_status', 'door', 'door_state'],
+        'pf_status' => ['pf_status', 'pf', 'power_failure', 'power_status'],
+        'timestamp' => ['timestamp', 'time', 'recorded_at'],
     ];
 
-    public function parse(array $payload): ParsedTelemetryData
+    public function __construct(
+        private readonly TopicDeviceCodeExtractor $topicDeviceCodeExtractor,
+    ) {
+    }
+
+    public function parse(array $payload, ?string $topic = null): ParsedTelemetryData
     {
         $mapped = [];
+        $mappedSources = [];
 
-        foreach ($this->fieldMap as $target => $source) {
-            $mapped[$target] = Arr::get($payload, $source);
+        foreach ($this->fieldMap as $target => $sources) {
+            [$mapped[$target], $mappedSources[$target]] = $this->firstMappedValue($payload, (array) $sources);
+        }
+
+        if (! filled($mapped['device_code'] ?? null)) {
+            $mapped['device_code'] = $this->topicDeviceCodeExtractor->extract($topic ?? Arr::get($payload, 'topic'));
         }
 
         $validated = Validator::make($mapped, [
@@ -51,10 +71,21 @@ class TelemetryPayloadParser
             temperature3: $this->nullableFloat($validated['temperature_3'] ?? null),
             temperature4: $this->nullableFloat($validated['temperature_4'] ?? null),
             doorStatus: $this->normalizeDoorStatus($validated['door_status'] ?? null),
-            pfStatus: $this->normalizePfStatus($validated['pf_status'] ?? null),
+            pfStatus: $this->normalizePfStatus($validated['pf_status'] ?? null, $mappedSources['pf_status'] ?? null),
             recordedAt: $this->nullableTimestamp($validated['timestamp'] ?? null),
             rawPayload: $payload,
         );
+    }
+
+    private function firstMappedValue(array $payload, array $sources): array
+    {
+        foreach ($sources as $source) {
+            if (Arr::has($payload, $source)) {
+                return [Arr::get($payload, $source), $source];
+            }
+        }
+
+        return [null, null];
     }
 
     private function nullableFloat(mixed $value): ?float
@@ -95,12 +126,21 @@ class TelemetryPayloadParser
         };
     }
 
-    private function normalizePfStatus(mixed $value): ?string
+    private function normalizePfStatus(mixed $value, ?string $source = null): ?string
     {
         $status = $this->statusToken($value);
 
         if ($status === null) {
             return null;
+        }
+
+        if ($source === 'power_failure') {
+            return match ($status) {
+                '1', 'true', 'yes', 'y', 'on', 'fault', 'failed', 'failure', 'fail', 'error', 'alarm', 'trip', 'tripped' => 'fault',
+                '0', 'false', 'no', 'n', 'off', 'ok', 'okay', 'good', 'healthy', 'normal' => 'normal',
+                'warn', 'warning' => 'warning',
+                default => $status,
+            };
         }
 
         return match ($status) {

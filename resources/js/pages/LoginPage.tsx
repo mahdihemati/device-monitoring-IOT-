@@ -13,7 +13,7 @@ export function LoginPage() {
     const [error, setError] = useState<string | null>(null);
 
     if (user) {
-        return <Navigate to="/dashboard" replace />;
+        return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />;
     }
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {

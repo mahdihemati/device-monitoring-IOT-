@@ -77,6 +77,33 @@ class AlarmEvaluationService
         return 'normal';
     }
 
+    public function telemetryStatus(Telemetry $telemetry): string
+    {
+        $readings = collect($this->sensorReadings($telemetry));
+
+        if ($readings->contains(fn (?float $value): bool => $value !== null && ($value > $this->maxTemperature() || $value < $this->minTemperature()))) {
+            return 'critical';
+        }
+
+        if (in_array($this->normalizeStatus($telemetry->pf_status), ['fault', 'failed', 'failure', 'fail', 'error', 'alarm', 'trip', 'tripped', 'offline'], true)) {
+            return 'critical';
+        }
+
+        if ($readings->contains(fn (?float $value): bool => $value === null)) {
+            return 'warning';
+        }
+
+        if ($this->normalizeStatus($telemetry->door_status) === 'open') {
+            return 'warning';
+        }
+
+        if ($this->normalizeStatus($telemetry->pf_status) === 'warning') {
+            return 'warning';
+        }
+
+        return 'normal';
+    }
+
     private function evaluateTemperatures(Device $device, Telemetry $telemetry): void
     {
         $readings = $this->sensorReadings($telemetry);

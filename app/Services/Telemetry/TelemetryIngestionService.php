@@ -16,9 +16,9 @@ class TelemetryIngestionService
     ) {
     }
 
-    public function ingest(array $payload): Telemetry
+    public function ingest(array $payload, ?string $topic = null): Telemetry
     {
-        $data = $this->parser->parse($payload);
+        $data = $this->parser->parse($payload, $topic);
 
         return DB::transaction(function () use ($data): Telemetry {
             $device = Device::query()

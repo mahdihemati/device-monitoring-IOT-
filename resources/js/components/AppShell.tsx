@@ -1,9 +1,19 @@
-import { LogOut, Thermometer } from 'lucide-react';
+import { LogOut, ShieldCheck, Thermometer } from 'lucide-react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export function AppShell() {
     const { user, logout } = useAuth();
+    const isAdmin = user?.role === 'admin';
+    const navItems = [
+        { to: '/dashboard', label: 'Dashboard' },
+        ...(isAdmin ? [
+            { to: '/admin', label: 'Admin' },
+            { to: '/admin/customers', label: 'Clients' },
+            { to: '/admin/users', label: 'Users' },
+            { to: '/admin/devices', label: 'Refrigerators' },
+        ] : []),
+    ];
 
     return (
         <div className="min-h-screen">
@@ -15,19 +25,19 @@ export function AppShell() {
                         </span>
                         <span className="min-w-0">
                             <span className="block truncate text-sm font-semibold text-slate-950 sm:text-base">Blood Refrigerator Monitor</span>
-                            <span className="block truncate text-xs text-slate-500">Organization: {user?.customer.name}</span>
+                            <span className="block truncate text-xs text-slate-500">
+                                {isAdmin ? 'Company administration' : `Organization: ${user?.customer?.name ?? 'Unassigned'}`}
+                            </span>
                         </span>
                     </Link>
 
                     <div className="flex min-w-0 shrink-0 items-center justify-end gap-2 sm:gap-3">
-                        <nav className="hidden items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 md:flex" aria-label="Primary navigation">
-                            <NavLink
-                                to="/dashboard"
-                                className={({ isActive }) => `rounded-md px-3 py-1.5 text-sm font-medium ${isActive ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
-                            >
-                                Dashboard
-                            </NavLink>
-                        </nav>
+                        {isAdmin ? (
+                            <span className="hidden items-center gap-1 rounded-md border border-sky-100 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700 sm:inline-flex">
+                                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                                Admin
+                            </span>
+                        ) : null}
                         <button
                             type="button"
                             aria-label="Log out"
@@ -39,6 +49,22 @@ export function AppShell() {
                         </button>
                     </div>
                 </div>
+                <nav className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8" aria-label="Primary navigation">
+                    {navItems.map((item) => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            end={item.to === '/admin' || item.to === '/dashboard'}
+                            className={({ isActive }) => `inline-flex h-10 shrink-0 items-center rounded-lg border px-3 text-sm font-semibold transition ${
+                                isActive
+                                    ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
+                            }`}
+                        >
+                            {item.label}
+                        </NavLink>
+                    ))}
+                </nav>
             </header>
 
             <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">

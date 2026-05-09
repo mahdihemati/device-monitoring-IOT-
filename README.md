@@ -1,6 +1,6 @@
-# Device Monitoring Dashboard MVP
+# Blood Refrigerator Monitor
 
-Laravel + MySQL backend with a React, TypeScript, Vite, Tailwind CSS frontend for customer-owned hardware device monitoring.
+Laravel + MySQL backend with a React, TypeScript, Vite, Tailwind CSS frontend for client-owned blood refrigerator monitoring.
 
 ## Stack
 
@@ -31,6 +31,8 @@ php artisan migrate --seed
 
 Demo login:
 
+- Admin username: `admin`
+- Admin password: `password`
 - Username: `demo`
 - Password: `password`
 
@@ -62,20 +64,28 @@ The frontend never connects to MQTT. It only reads Laravel APIs. Telemetry can e
 
 For now, ingestion is protected by `INGESTION_SECRET` through the `X-Ingestion-Secret` header. The authentication code is isolated so it can later support per-device API keys without changing controllers or the frontend.
 
-Expected temporary payload:
+Expected primary payload:
 
 ```json
 {
   "device_code": "device-001",
-  "temperature_1": 24.5,
-  "temperature_2": 25.1,
-  "temperature_3": 26.0,
-  "temperature_4": 24.8,
+  "temperature_1": 4.5,
+  "temperature_2": 4.6,
+  "temperature_3": 4.7,
+  "temperature_4": 4.8,
   "door_status": "closed",
   "pf_status": "normal",
   "timestamp": "2026-05-07T10:20:00Z"
 }
 ```
+
+The parser also accepts common alternatives while the final firmware payload is being confirmed:
+
+- Device identifier: `device_code`, `device_id`, `serial`, `refrigerator_id`, `refrigerator_code`
+- Sensors: `temperature_1..4`, `t1..4`, `temp1..4`, `sensor1..4`
+- Door: `door_status`, `door`, `door_state`
+- PF: `pf_status`, `pf`, `power_failure`, `power_status`
+- Time: `timestamp`, `time`, `recorded_at`
 
 Test HTTP ingestion:
 
@@ -86,27 +96,65 @@ curl -X POST http://localhost:8000/api/ingest/telemetry \
   -H "X-Ingestion-Secret: change-this-local-secret" \
   -d '{
     "device_code": "device-001",
-    "temperature_1": 24.5,
-    "temperature_2": 25.1,
-    "temperature_3": 26.0,
-    "temperature_4": 24.8,
+    "temperature_1": 4.5,
+    "temperature_2": 4.6,
+    "temperature_3": 4.7,
+    "temperature_4": 4.8,
     "door_status": "closed",
     "pf_status": "normal",
     "timestamp": "2026-05-07T10:20:00Z"
   }'
 ```
 
-## MQTT Listener
+## Real MQTT Integration
 
-Set these `.env` values for your broker:
+The frontend must not connect to MQTT. Real devices publish JSON to the MQTT broker, and the Laravel listener ingests those messages server-side.
+
+Required MQTT `.env` values:
 
 ```dotenv
 MQTT_HOST=127.0.0.1
 MQTT_PORT=1883
 MQTT_USERNAME=
 MQTT_PASSWORD=
+MQTT_CLIENT_ID=blood-refrigerator-monitor
 MQTT_TOPIC=devices/+/telemetry
+MQTT_QOS=0
+MQTT_KEEP_ALIVE=60
 MQTT_USE_TLS=false
+MQTT_DEVICE_CODE_TOPIC_REGEX=
+```
+
+If `device_code` is not present in JSON, the app can derive it from these topic formats by default:
+
+- `refrigerators/{device_code}/telemetry`
+- `devices/{device_code}/telemetry`
+- `clients/{client_code}/refrigerators/{device_code}/telemetry`
+
+For a custom topic format, set `MQTT_DEVICE_CODE_TOPIC_REGEX` with either a named `device_code` group or one capture group. Example:
+
+```dotenv
+MQTT_DEVICE_CODE_TOPIC_REGEX=/^site\/[^\/]+\/unit\/(?P<device_code>[^\/]+)\/data$/
+```
+
+Example MQTT topic:
+
+```text
+devices/device-001/telemetry
+```
+
+Example payload where the device code comes from the topic:
+
+```json
+{
+  "t1": 4.5,
+  "t2": 4.6,
+  "t3": 4.7,
+  "t4": 4.8,
+  "door": "closed",
+  "power_status": "normal",
+  "time": "2026-05-07T10:20:00Z"
+}
 ```
 
 Run in development:
@@ -121,7 +169,34 @@ For a single-message test:
 php artisan mqtt:listen --once
 ```
 
-Normal shared PHP hosting may not allow permanent processes. In that case, run an external MQTT bridge that posts device JSON to `POST /api/ingest/telemetry` with the `X-Ingestion-Secret` header.
+The listener logs connection attempts, subscribed topics, invalid JSON, validation failures, unknown device codes, and successful telemetry writes. Bad messages are skipped so the listener can continue.
+
+To test topic-derived device codes without a broker, send `X-MQTT-Topic`:
+
+```bash
+curl -X POST http://localhost:8000/api/ingest/telemetry \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "X-Ingestion-Secret: change-this-local-secret" \
+  -H "X-MQTT-Topic: devices/device-001/telemetry" \
+  -d '{
+    "t1": 4.5,
+    "t2": 4.6,
+    "t3": 4.7,
+    "t4": 4.8,
+    "door": "closed",
+    "pf": "normal",
+    "time": "2026-05-07T10:20:00Z"
+  }'
+```
+
+Production mode A: process-capable server
+
+Run `php artisan mqtt:listen` under Supervisor, systemd, a container process manager, or an equivalent always-on worker. Restart it on deploys and configure log retention.
+
+Production mode B: shared hosting or low-cost hosting
+
+Many shared PHP hosts do not allow permanent processes. In that case, use an external MQTT bridge, gateway, Node-RED flow, ThingsBoard integration, broker webhook, or small worker service to subscribe to MQTT and POST JSON to `POST /api/ingest/telemetry` with the `X-Ingestion-Secret` header.
 
 ## API
 
@@ -137,6 +212,18 @@ Devices:
 - `GET /api/devices/{device}`
 - `GET /api/devices/{device}/latest`
 - `GET /api/devices/{device}/history`
+- `GET /api/devices/{device}/history/export`
+
+Admin:
+
+- `GET|POST /api/admin/customers`
+- `GET|PUT|DELETE /api/admin/customers/{customer}`
+- `GET|POST /api/admin/users`
+- `PUT|DELETE /api/admin/users/{user}`
+- `POST /api/admin/users/{user}/reset-password`
+- `GET|POST /api/admin/devices`
+- `GET|PUT|DELETE /api/admin/devices/{device}`
+- `GET /api/admin/devices/{device}/raw-telemetry`
 
 Ingestion:
 

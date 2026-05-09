@@ -18,7 +18,10 @@ class TelemetryIngestController extends Controller
     {
         $authenticator->authorize($request);
 
-        $telemetry = $ingestionService->ingest($request->all());
+        $telemetry = $ingestionService->ingest(
+            $request->all(),
+            $request->header('X-MQTT-Topic') ?: $request->input('topic'),
+        );
 
         return response()->json([
             'message' => 'Telemetry ingested.',

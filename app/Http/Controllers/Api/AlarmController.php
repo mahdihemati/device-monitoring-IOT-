@@ -25,6 +25,8 @@ class AlarmController extends Controller
 
         $alarms = $this->baseAlarmQuery($request)
             ->when($request->filled('device_id'), fn (Builder $query): Builder => $query->where('device_id', $request->integer('device_id')))
+            ->when($request->string('status')->toString() === 'active', fn (Builder $query): Builder => $query->where('is_resolved', false))
+            ->when($request->string('status')->toString() === 'resolved', fn (Builder $query): Builder => $query->where('is_resolved', true))
             ->when($request->has('is_resolved'), fn (Builder $query): Builder => $query->where('is_resolved', $request->boolean('is_resolved')))
             ->latest('triggered_at')
             ->latest('id')

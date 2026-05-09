@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Clock3, Hash, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Clock3, Download, Hash, RefreshCw } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import {
     CartesianGrid,
@@ -21,6 +21,70 @@ import type { Alarm, Device, Telemetry } from '../types';
 import { chartTime, formatLongDateTime, formatTemperature } from '../utils/format';
 import { getRefrigeratorStatus } from '../utils/refrigeratorStatus';
 
+type HistoryPreset = '1h' | '24h' | '7d' | 'custom';
+
+interface HistoryParams {
+    limit: number;
+    from?: string;
+    to?: string;
+}
+
+const historyPresetOptions: Array<{ value: HistoryPreset; label: string }> = [
+    { value: '1h', label: 'Last 1 hour' },
+    { value: '24h', label: 'Last 24 hours' },
+    { value: '7d', label: 'Last 7 days' },
+    { value: 'custom', label: 'Custom range' },
+];
+
+function toDateTimeLocalInput(date: Date): string {
+    const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60_000));
+
+    return offsetDate.toISOString().slice(0, 16);
+}
+
+function dateTimeInputToIso(value: string): string | undefined {
+    return value ? new Date(value).toISOString() : undefined;
+}
+
+function buildHistoryParams(preset: HistoryPreset, customFrom: string, customTo: string, limit = 300): HistoryParams {
+    const params: HistoryParams = { limit };
+
+    if (preset === '1h') {
+        params.from = new Date(Date.now() - (60 * 60 * 1000)).toISOString();
+    }
+
+    if (preset === '24h') {
+        params.from = new Date(Date.now() - (24 * 60 * 60 * 1000)).toISOString();
+    }
+
+    if (preset === '7d') {
+        params.from = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)).toISOString();
+    }
+
+    if (preset === 'custom') {
+        params.from = dateTimeInputToIso(customFrom);
+        params.to = dateTimeInputToIso(customTo);
+    }
+
+    return params;
+}
+
+function buildExportHref(deviceId: string, params: HistoryParams): string {
+    const searchParams = new URLSearchParams();
+
+    if (params.from) {
+        searchParams.set('from', params.from);
+    }
+
+    if (params.to) {
+        searchParams.set('to', params.to);
+    }
+
+    searchParams.set('limit', String(params.limit));
+
+    return `/api/devices/${deviceId}/history/export?${searchParams.toString()}`;
+}
+
 export function DeviceDetailPage() {
     const { deviceId } = useParams<{ deviceId: string }>();
     const [device, setDevice] = useState<Device | null>(null);
@@ -28,11 +92,15 @@ export function DeviceDetailPage() {
     const [history, setHistory] = useState<Telemetry[]>([]);
     const [alarms, setAlarms] = useState<Alarm[]>([]);
     const [resolvingAlarmIds, setResolvingAlarmIds] = useState<Set<number>>(() => new Set());
+    const [historyPreset, setHistoryPreset] = useState<HistoryPreset>('24h');
+    const [customFrom, setCustomFrom] = useState(() => toDateTimeLocalInput(new Date(Date.now() - (24 * 60 * 60 * 1000))));
+    const [customTo, setCustomTo] = useState(() => toDateTimeLocalInput(new Date()));
     const [loading, setLoading] = useState(true);
+    const [historyLoading, setHistoryLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchDeviceData = useCallback(async (showRefresh = false) => {
+    const fetchDeviceData = useCallback(async (showRefresh = false, showHistoryLoading = false) => {
         if (! deviceId) {
             return;
         }
@@ -41,11 +109,16 @@ export function DeviceDetailPage() {
             setRefreshing(true);
         }
 
+        if (showHistoryLoading) {
+            setHistoryLoading(true);
+        }
+
         try {
+            const historyParams = buildHistoryParams(historyPreset, customFrom, customTo);
             const [deviceResponse, latestResponse, historyResponse, alarmsResponse] = await Promise.all([
                 api.get<{ device: Device }>(`/devices/${deviceId}`),
                 api.get<{ telemetry: Telemetry | null }>(`/devices/${deviceId}/latest`),
-                api.get<{ telemetry: Telemetry[] }>(`/devices/${deviceId}/history`, { params: { limit: 120 } }),
+                api.get<{ telemetry: Telemetry[] }>(`/devices/${deviceId}/history`, { params: historyParams }),
                 api.get<{ alarms: Alarm[] }>('/alarms', { params: { device_id: deviceId, limit: 30 } }),
             ]);
 
@@ -58,9 +131,10 @@ export function DeviceDetailPage() {
             setError(getErrorMessage(caughtError));
         } finally {
             setLoading(false);
+            setHistoryLoading(false);
             setRefreshing(false);
         }
-    }, [deviceId]);
+    }, [customFrom, customTo, deviceId, historyPreset]);
 
     const resolveAlarm = useCallback(async (alarmId: number) => {
         setResolvingAlarmIds((current) => new Set(current).add(alarmId));
@@ -81,7 +155,7 @@ export function DeviceDetailPage() {
     }, [fetchDeviceData]);
 
     useEffect(() => {
-        void fetchDeviceData();
+        void fetchDeviceData(false, true);
 
         const intervalId = window.setInterval(() => {
             void fetchDeviceData(true);
@@ -96,10 +170,36 @@ export function DeviceDetailPage() {
         temperature_2: item.temperature_2,
         temperature_3: item.temperature_3,
         temperature_4: item.temperature_4,
+        recorded_at: item.recorded_at,
     })), [history]);
 
     const activeAlarms = useMemo(() => alarms.filter((alarm) => ! alarm.is_resolved), [alarms]);
     const resolvedAlarms = useMemo(() => alarms.filter((alarm) => alarm.is_resolved), [alarms]);
+    const temperatureStats = useMemo(() => {
+        const values = history.flatMap((item) => [
+            item.temperature_1,
+            item.temperature_2,
+            item.temperature_3,
+            item.temperature_4,
+        ]).filter((value): value is number => value !== null);
+
+        if (values.length === 0) {
+            return {
+                min: null,
+                max: null,
+                average: null,
+                readings: history.length,
+            };
+        }
+
+        return {
+            min: Math.min(...values),
+            max: Math.max(...values),
+            average: values.reduce((sum, value) => sum + value, 0) / values.length,
+            readings: history.length,
+        };
+    }, [history]);
+    const exportHref = deviceId ? buildExportHref(deviceId, buildHistoryParams(historyPreset, customFrom, customTo, 1000)) : '#';
 
     if (loading) {
         return <LoadingState label="Loading refrigerator" />;
@@ -161,6 +261,64 @@ export function DeviceDetailPage() {
             </div>
 
             {error ? <ErrorBanner message={error} /> : null}
+
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="history-filter-heading">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                        <h2 id="history-filter-heading" className="text-base font-semibold text-slate-950">History Filter</h2>
+                        <p className="mt-1 text-sm text-slate-500">Filter the chart, table, and CSV export by recent or custom time range.</p>
+                    </div>
+                    <a
+                        href={exportHref}
+                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 sm:w-auto"
+                    >
+                        <Download className="h-4 w-4" aria-hidden="true" />
+                        Export CSV
+                    </a>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                        {historyPresetOptions.map((option) => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => setHistoryPreset(option.value)}
+                                className={`h-11 rounded-lg border px-3 text-sm font-semibold transition ${
+                                    historyPreset === option.value
+                                        ? 'border-sky-200 bg-sky-50 text-sky-700'
+                                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                                }`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {historyPreset === 'custom' ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="block">
+                                <span className="text-xs font-semibold uppercase text-slate-500">From</span>
+                                <input
+                                    type="datetime-local"
+                                    value={customFrom}
+                                    onChange={(event) => setCustomFrom(event.target.value)}
+                                    className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                                />
+                            </label>
+                            <label className="block">
+                                <span className="text-xs font-semibold uppercase text-slate-500">To</span>
+                                <input
+                                    type="datetime-local"
+                                    value={customTo}
+                                    onChange={(event) => setCustomTo(event.target.value)}
+                                    className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                                />
+                            </label>
+                        </div>
+                    ) : null}
+                </div>
+            </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="latest-readings-heading">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -233,7 +391,16 @@ export function DeviceDetailPage() {
                         </div>
                     </div>
 
-                    {chartData.length === 0 ? (
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <MetricTile label="Min" value={formatTemperature(temperatureStats.min)} helper="Filtered sensors" />
+                        <MetricTile label="Max" value={formatTemperature(temperatureStats.max)} helper="Filtered sensors" />
+                        <MetricTile label="Average" value={formatTemperature(temperatureStats.average)} helper="Filtered sensors" />
+                        <MetricTile label="Readings" value={String(temperatureStats.readings)} helper="Records returned" />
+                    </div>
+
+                    {historyLoading ? (
+                        <LoadingState label="Loading filtered history" />
+                    ) : chartData.length === 0 ? (
                         <EmptyState title="No chart data" message="Telemetry readings will be plotted after ingestion." />
                     ) : (
                         <div className="h-72 w-full overflow-hidden sm:h-80" aria-label="Sensor temperature chart">
@@ -243,6 +410,11 @@ export function DeviceDetailPage() {
                                     <XAxis dataKey="time" tick={{ fill: '#64748b', fontSize: 11 }} tickMargin={10} minTickGap={20} />
                                     <YAxis tick={{ fill: '#64748b', fontSize: 11 }} tickMargin={8} width={38} />
                                     <Tooltip
+                                        labelFormatter={(_label, payload) => {
+                                            const row = payload?.[0]?.payload as { recorded_at?: string | null } | undefined;
+
+                                            return formatLongDateTime(row?.recorded_at ?? null);
+                                        }}
                                         contentStyle={{
                                             borderRadius: 8,
                                             borderColor: '#cbd5e1',
@@ -304,13 +476,17 @@ export function DeviceDetailPage() {
                     </div>
                 </div>
 
-                {history.length === 0 ? (
+                {historyLoading ? (
+                    <div className="p-4">
+                        <LoadingState label="Loading filtered history" />
+                    </div>
+                ) : history.length === 0 ? (
                     <div className="p-4">
                         <EmptyState title="No telemetry" message="Recent telemetry records will appear here." />
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="min-w-[760px] divide-y divide-slate-200 text-sm">
+                        <table className="min-w-[980px] divide-y divide-slate-200 text-sm">
                             <thead className="bg-slate-50">
                                 <tr>
                                     <th className="px-4 py-3 text-left font-semibold text-slate-600">Recorded</th>
@@ -320,6 +496,8 @@ export function DeviceDetailPage() {
                                     <th className="px-4 py-3 text-left font-semibold text-slate-600">Sensor 4</th>
                                     <th className="px-4 py-3 text-left font-semibold text-slate-600">Door</th>
                                     <th className="px-4 py-3 text-left font-semibold text-slate-600">PF</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Status</th>
+                                    <th className="px-4 py-3 text-left font-semibold text-slate-600">Alarm</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white">
@@ -332,6 +510,12 @@ export function DeviceDetailPage() {
                                         <td className="whitespace-nowrap px-4 py-3 font-medium text-slate-900">{formatTemperature(item.temperature_4)}</td>
                                         <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={item.door_status} type="door" /></td>
                                         <td className="whitespace-nowrap px-4 py-3"><StatusBadge value={item.pf_status} type="pf" /></td>
+                                        <td className="whitespace-nowrap px-4 py-3">
+                                            <OverallStatusBadge level={item.overall_status ?? 'normal'} label={(item.overall_status ?? 'normal').replace(/^./, (char) => char.toUpperCase())} />
+                                        </td>
+                                        <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-700">
+                                            {item.alarm_indicator ? 'Yes' : 'No'}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

@@ -20,7 +20,19 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $customer = Customer::query()->create([
-            'name' => 'Demo Factory Customer',
+            'name' => 'Demo Blood Bank',
+            'contact_name' => 'Demo Supervisor',
+            'phone' => '+1 555 0100',
+            'email' => 'demo@example.com',
+            'notes' => 'Seed client for refrigerator monitoring demos.',
+        ]);
+
+        User::query()->create([
+            'customer_id' => null,
+            'name' => 'Company Admin',
+            'username' => 'admin',
+            'password' => Hash::make('password'),
+            'role' => User::ROLE_ADMIN,
         ]);
 
         User::query()->create([
@@ -28,27 +40,32 @@ class DatabaseSeeder extends Seeder
             'name' => 'Demo Operator',
             'username' => 'demo',
             'password' => Hash::make('password'),
+            'role' => User::ROLE_CLIENT,
         ]);
 
         $devices = [
             Device::query()->create([
                 'customer_id' => $customer->id,
                 'device_code' => 'device-001',
-                'name' => 'Cold Room Controller',
-                'serial_number' => 'SN-CR-001',
+                'name' => 'Blood Refrigerator A',
+                'serial_number' => 'SN-BR-001',
+                'location' => 'Blood bank storage room',
+                'notes' => 'Primary refrigerator for demo telemetry.',
             ]),
             Device::query()->create([
                 'customer_id' => $customer->id,
                 'device_code' => 'device-002',
-                'name' => 'Packing Line Cabinet',
-                'serial_number' => 'SN-PL-002',
+                'name' => 'Blood Refrigerator B',
+                'serial_number' => 'SN-BR-002',
+                'location' => 'Emergency department lab',
+                'notes' => 'Secondary refrigerator for demo telemetry.',
             ]),
         ];
 
         foreach ($devices as $deviceIndex => $device) {
             for ($i = 15; $i >= 0; $i--) {
                 $recordedAt = CarbonImmutable::now()->subMinutes($i * 5);
-                $baseTemperature = 23.8 + $deviceIndex + ($i * 0.08);
+                $baseTemperature = 3.8 + ($deviceIndex * 0.2) + ($i * 0.02);
 
                 $device->telemetry()->create([
                     'temperature_1' => round($baseTemperature, 2),
