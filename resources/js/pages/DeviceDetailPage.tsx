@@ -15,6 +15,7 @@ import { api, getErrorMessage } from '../api/client';
 import { AlarmList } from '../components/AlarmList';
 import { MetricTile } from '../components/MetricTile';
 import { OverallStatusBadge } from '../components/OverallStatusBadge';
+import { useOnlineStatus } from '../components/PwaStatus';
 import { EmptyState, ErrorBanner, LoadingState } from '../components/StateBlocks';
 import { StatusBadge } from '../components/StatusBadge';
 import type { Alarm, Device, Telemetry } from '../types';
@@ -101,9 +102,18 @@ export function DeviceDetailPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+    const online = useOnlineStatus();
 
     const fetchDeviceData = useCallback(async (showRefresh = false, showHistoryLoading = false) => {
         if (! deviceId) {
+            return;
+        }
+
+        if (! navigator.onLine) {
+            setLoading(false);
+            setHistoryLoading(false);
+            setRefreshing(false);
+
             return;
         }
 
@@ -158,14 +168,20 @@ export function DeviceDetailPage() {
     }, [fetchDeviceData]);
 
     useEffect(() => {
-        void fetchDeviceData(false, true);
+        if (! online) {
+            setLoading(false);
+            setHistoryLoading(false);
 
+            return undefined;
+        }
+
+        void fetchDeviceData(false, true);
         const intervalId = window.setInterval(() => {
             void fetchDeviceData(true);
         }, 5000);
 
         return () => window.clearInterval(intervalId);
-    }, [fetchDeviceData]);
+    }, [fetchDeviceData, online]);
 
     const chartData = useMemo(() => [...history].reverse().map((item) => ({
         time: chartTime(item.recorded_at),
@@ -251,7 +267,9 @@ export function DeviceDetailPage() {
                                 <span className="truncate font-medium text-slate-700">{formatLongDateTime(device.last_seen_at)}</span>
                             </span>
                         </div>
-                        <p className="mt-3 max-w-3xl rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium leading-6 text-slate-600 ring-1 ring-slate-100">{status.detail}</p>
+                        <p className={`mt-3 max-w-3xl rounded-lg px-3 py-2 text-sm font-medium leading-6 ring-1 ${online ? 'bg-slate-50 text-slate-600 ring-slate-100' : 'bg-amber-50 text-amber-900 ring-amber-200'}`}>
+                            {online ? status.detail : 'آفلاین هستید؛ داده‌های نمایش‌داده‌شده ممکن است آخرین وضعیت زنده نباشند.'}
+                        </p>
                         <p className="mt-2 text-xs font-bold text-slate-500">آخرین به‌روزرسانی: {formatLongDateTime(lastUpdatedAt)}</p>
                     </div>
                     <button

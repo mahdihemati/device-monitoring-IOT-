@@ -14,15 +14,20 @@ return new class extends Migration
         Schema::create('customers', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('contact_name')->nullable();
+            $table->string('phone')->nullable();
+            $table->string('email')->nullable();
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
 
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('customer_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('customer_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->string('username')->unique();
             $table->string('password');
+            $table->string('role', 20)->default('client');
             $table->timestamps();
         });
 

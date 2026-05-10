@@ -6,7 +6,7 @@ interface BeforeInstallPromptEvent extends Event {
     userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
-export function OfflineBanner() {
+export function useOnlineStatus() {
     const [online, setOnline] = useState(() => navigator.onLine);
 
     useEffect(() => {
@@ -21,6 +21,12 @@ export function OfflineBanner() {
             window.removeEventListener('offline', handleOffline);
         };
     }, []);
+
+    return online;
+}
+
+export function OfflineBanner() {
+    const online = useOnlineStatus();
 
     if (online) {
         return null;

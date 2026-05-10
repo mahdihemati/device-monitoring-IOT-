@@ -904,7 +904,7 @@ function CustomerTable({ customers, busyKey, onEdit, onDelete }: { customers: Cu
                             <tr key={customer.id} className="hover:bg-slate-50">
                                 <td className="px-4 py-3 font-semibold text-slate-950">{customer.name}</td>
                                 <td className="px-4 py-3 text-slate-600">{customer.contact_name ?? customer.phone ?? '--'}</td>
-                                <td className="px-4 py-3 text-slate-600">{customer.email ?? '--'}</td>
+                                <td className="px-4 py-3 text-slate-600" dir="ltr">{customer.email ?? '--'}</td>
                                 <td className="px-4 py-3 text-slate-600">{formatCount(customer.users_count ?? 0)}</td>
                                 <td className="px-4 py-3 text-slate-600">{formatCount(customer.devices_count ?? 0)}</td>
                                 <td className="px-4 py-3">
@@ -947,7 +947,7 @@ function UserTable({ users, busyKey, onEdit, onDelete, onReset }: { users: User[
                             <Fragment key={user.id}>
                                 <tr className="hover:bg-slate-50">
                                     <td className="px-4 py-3 font-semibold text-slate-950">{user.name}</td>
-                                    <td className="px-4 py-3 font-mono text-slate-600">{user.username}</td>
+                                    <td className="px-4 py-3 font-mono text-slate-600" dir="ltr">{user.username}</td>
                                     <td className="px-4 py-3">
                                         <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${user.role === 'admin' ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-100' : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200'}`}>
                                             {roleLabel(user.role)}
@@ -1014,7 +1014,7 @@ function DeviceTable({
                         {devices.map((device) => (
                             <tr key={device.id} className="hover:bg-slate-50">
                                 <td className="px-4 py-3 font-semibold text-slate-950">{device.name}</td>
-                                <td className="px-4 py-3 font-mono text-slate-600">{device.device_code}</td>
+                                <td className="px-4 py-3 font-mono text-slate-600" dir="ltr">{device.device_code}</td>
                                 <td className="px-4 py-3 text-slate-600">{device.customer?.name ?? '--'}</td>
                                 <td className="px-4 py-3 text-slate-600">{device.serial_number ?? '--'}</td>
                                 <td className="px-4 py-3 text-slate-600">{device.location ?? '--'}</td>
@@ -1058,7 +1058,7 @@ function RawTelemetryPanel({
                 <div>
                     <h3 id="raw-telemetry-heading" className="text-base font-semibold text-slate-950">داده‌های خام تله‌متری</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                        آخرین پیام‌های MQTT/JSON برای {device.name} ({device.device_code}). این بخش فقط برای مدیران و عیب‌یابی است.
+                        آخرین پیام‌های MQTT/JSON برای {device.name} (<span dir="ltr">{device.device_code}</span>). این بخش فقط برای مدیران و عیب‌یابی است.
                     </p>
                 </div>
                 <button type="button" onClick={onClose} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
@@ -1082,7 +1082,7 @@ function RawTelemetryPanel({
                                 <p className="text-sm font-semibold text-slate-950">تله‌متری شماره {formatCount(record.id)}</p>
                                 <p className="text-xs font-medium text-slate-500">ثبت‌شده در {formatDateTime(record.recorded_at)}</p>
                             </div>
-                            <pre className="max-h-72 overflow-auto rounded-lg bg-slate-950 p-3 text-xs leading-5 text-slate-100">
+                            <pre dir="ltr" className="max-h-72 overflow-auto rounded-lg bg-slate-950 p-3 text-left text-xs leading-5 text-slate-100">
                                 {JSON.stringify(record.raw_payload, null, 2)}
                             </pre>
                         </article>

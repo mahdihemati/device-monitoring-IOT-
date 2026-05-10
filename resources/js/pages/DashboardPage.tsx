@@ -4,6 +4,7 @@ import { api, getErrorMessage } from '../api/client';
 import { AlarmList } from '../components/AlarmList';
 import { DeviceSummaryCard } from '../components/DeviceSummaryCard';
 import { OverallStatusBadge } from '../components/OverallStatusBadge';
+import { useOnlineStatus } from '../components/PwaStatus';
 import { EmptyState, ErrorBanner, LoadingState } from '../components/StateBlocks';
 import { SummaryStatCard } from '../components/SummaryStatCard';
 import type { Alarm, Device } from '../types';
@@ -73,8 +74,16 @@ export function DashboardPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+    const online = useOnlineStatus();
 
     const fetchDashboardData = useCallback(async (showRefresh = false) => {
+        if (! navigator.onLine) {
+            setRefreshing(false);
+            setLoading(false);
+
+            return;
+        }
+
         if (showRefresh) {
             setRefreshing(true);
         }
@@ -118,14 +127,19 @@ export function DashboardPage() {
     }, [fetchDashboardData]);
 
     useEffect(() => {
-        void fetchDashboardData();
+        if (! online) {
+            setLoading(false);
 
+            return undefined;
+        }
+
+        void fetchDashboardData();
         const intervalId = window.setInterval(() => {
             void fetchDashboardData(true);
         }, 5000);
 
         return () => window.clearInterval(intervalId);
-    }, [fetchDashboardData]);
+    }, [fetchDashboardData, online]);
 
     const statusCounts = useMemo(() => countRefrigeratorStatuses(devices), [devices]);
     const overviewState = useMemo(() => getOverviewState(devices.length, statusCounts), [devices.length, statusCounts]);
@@ -144,12 +158,12 @@ export function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="inline-flex h-11 items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm">
+                    <div className={`inline-flex h-11 items-center gap-2 rounded-lg border bg-white px-3 text-sm font-semibold text-slate-600 shadow-sm ${online ? 'border-emerald-200' : 'border-amber-200'}`}>
                         <span className="relative flex h-2.5 w-2.5">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                            {online ? <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" /> : null}
+                            <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${online ? 'bg-emerald-500' : 'bg-amber-500'}`} />
                         </span>
-                        <span>به‌روزرسانی خودکار هر {toPersianNumber(5)} ثانیه</span>
+                        <span>{online ? `به‌روزرسانی خودکار هر ${toPersianNumber(5)} ثانیه` : 'آفلاین؛ داده زنده دریافت نمی‌شود'}</span>
                     </div>
                     <button
                         type="button"

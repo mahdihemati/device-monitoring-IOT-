@@ -91,7 +91,7 @@ class AdminDeviceController extends Controller
         $device->delete();
 
         return response()->json([
-            'message' => 'Refrigerator deleted.',
+            'message' => 'یخچال حذف شد.',
         ]);
     }
 

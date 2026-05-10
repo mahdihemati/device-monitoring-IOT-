@@ -57,14 +57,14 @@ class AdminUserController extends Controller
 
         if ($request->user()->is($user)) {
             throw ValidationException::withMessages([
-                'user' => ['You cannot delete your own admin account.'],
+                'user' => ['امکان حذف حساب مدیر فعلی وجود ندارد.'],
             ]);
         }
 
         $user->delete();
 
         return response()->json([
-            'message' => 'User deleted.',
+            'message' => 'کاربر حذف شد.',
         ]);
     }
 
@@ -81,7 +81,7 @@ class AdminUserController extends Controller
         ])->save();
 
         return response()->json([
-            'message' => 'Password reset.',
+            'message' => 'رمز عبور بازنشانی شد.',
         ]);
     }
 
@@ -108,7 +108,7 @@ class AdminUserController extends Controller
 
         if ($validated['role'] === User::ROLE_CLIENT && empty($validated['customer_id'])) {
             throw ValidationException::withMessages([
-                'customer_id' => ['Client users must be assigned to a client.'],
+                'customer_id' => ['کاربر مشتری باید به یک مشتری تخصیص داده شود.'],
             ]);
         }
 

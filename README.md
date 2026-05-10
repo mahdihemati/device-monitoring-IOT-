@@ -1,20 +1,15 @@
-# Blood Refrigerator Monitor
+# داشبورد پایش یخچال‌های خون
 
-Laravel + MySQL backend with a React, TypeScript, Vite, Tailwind CSS frontend for client-owned blood refrigerator monitoring.
+یک داشبورد Laravel + React + TypeScript + Tailwind برای پایش یخچال‌های نگهداری خون. سامانه شامل ورود مشتری و مدیر، داشبورد فارسی RTL، مدیریت مشتریان/کاربران/یخچال‌ها، دریافت تله‌متری از HTTP یا MQTT، هشدارها، تاریخچه، خروجی CSV و PWA نصب‌پذیر است.
 
-## Stack
+## پیش‌نیازها
 
-- Backend: Laravel, MySQL
-- Frontend: React, TypeScript, Vite, Tailwind CSS
-- Charts: Recharts
-- API client: Axios
-- Auth: Laravel session auth
-- MQTT ingestion: `php artisan mqtt:listen`
-- HTTP ingestion: `POST /api/ingest/telemetry`
+- PHP 8.3 یا جدیدتر
+- Composer
+- Node.js و npm
+- MySQL برای محیط واقعی، یا SQLite برای اجرای محلی سبک
 
-## Setup
-
-Install PHP 8.3+, Composer, Node.js, npm, and MySQL. The current `composer.json` requires PHP 8.3 or newer.
+## نصب اولیه
 
 ```bash
 composer install
@@ -23,103 +18,82 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Create a MySQL database named `device_monitoring`, then set the database values and `INGESTION_SECRET` in `.env`.
+در ویندوز اگر PowerShell اجرای `npm.ps1` را مسدود کرد، از `npm.cmd install` استفاده کنید.
 
-```bash
-php artisan migrate --seed
+## تنظیم فایل env
+
+برای MySQL مقدارهای زیر را در `.env` تنظیم کنید:
+
+```dotenv
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=device_monitoring
+DB_USERNAME=root
+DB_PASSWORD=
 ```
 
-Demo login:
+برای SQLite محلی:
 
-- Admin username: `admin`
-- Admin password: `password`
-- Username: `demo`
-- Password: `password`
+```bash
+touch database/database.sqlite
+```
 
-## Run Locally
+در PowerShell:
 
-Run Laravel:
+```powershell
+New-Item -ItemType File database/database.sqlite
+```
+
+```dotenv
+DB_CONNECTION=sqlite
+DB_DATABASE=/absolute/path/to/database/database.sqlite
+```
+
+برای دریافت تله‌متری، مقدار `INGESTION_SECRET` را در `.env` تغییر دهید:
+
+```dotenv
+INGESTION_SECRET=change-this-local-secret
+```
+
+## دیتابیس و داده نمونه
+
+برای نصب تازه و داده‌های دمو:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+داده نمونه شامل یک مشتری، کاربر مدیر، کاربر مشتری، دو یخچال خون، رکوردهای تله‌متری و چند وضعیت هشدار نمونه است.
+
+## اجرای محلی
+
+ترمینال اول:
 
 ```bash
 php artisan serve
 ```
 
-Run the Vite dev server in another terminal:
+ترمینال دوم:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:8000`.
+سپس `http://localhost:8000` را باز کنید.
 
-For a production-style frontend build:
-
-```bash
-npm run build
-```
-
-## PWA Installable App
-
-The dashboard is configured as an installable PWA for quick phone and desktop access.
-
-Build the production assets:
+## ساخت production
 
 ```bash
 npm run build
 ```
 
-PWA files are served from `public/`:
+## حساب‌های دمو
 
-- `manifest.webmanifest`
-- `sw.js`
-- `offline.html`
-- `icons/icon-192.png`
-- `icons/icon-512.png`
-- `icons/maskable-icon-512.png`
+- مدیر: `admin` / `password`
+- مشتری: `demo` / `password`
 
-Test installability:
-
-1. Serve the app over HTTPS in production, or use `localhost` for local testing.
-2. Run `npm run build`.
-3. Open the app in Chrome or Edge.
-4. Confirm the browser shows install support, or open DevTools > Application > Manifest.
-5. Use DevTools > Application > Service Workers to confirm `/sw.js` is registered.
-6. Enable offline mode in DevTools and reload a page to verify the offline fallback.
-
-Offline behavior is intentionally conservative. The service worker caches static build assets and the offline page, but it does not cache `/api/*` responses. Telemetry, alarms, history, users, clients, and admin data require live network access and are not shown from cache.
-
-Live refrigerator monitoring requires an internet connection. Do not treat the offline fallback as an operational monitoring screen.
-
-## Telemetry Ingestion
-
-The frontend never connects to MQTT. It only reads Laravel APIs. Telemetry can enter through the HTTP endpoint or the MQTT listener; both paths use the same parser and ingestion service.
-
-For now, ingestion is protected by `INGESTION_SECRET` through the `X-Ingestion-Secret` header. The authentication code is isolated so it can later support per-device API keys without changing controllers or the frontend.
-
-Expected primary payload:
-
-```json
-{
-  "device_code": "device-001",
-  "temperature_1": 4.5,
-  "temperature_2": 4.6,
-  "temperature_3": 4.7,
-  "temperature_4": 4.8,
-  "door_status": "closed",
-  "pf_status": "normal",
-  "timestamp": "2026-05-07T10:20:00Z"
-}
-```
-
-The parser also accepts common alternatives while the final firmware payload is being confirmed:
-
-- Device identifier: `device_code`, `device_id`, `serial`, `refrigerator_id`, `refrigerator_code`
-- Sensors: `temperature_1..4`, `t1..4`, `temp1..4`, `sensor1..4`
-- Door: `door_status`, `door`, `door_state`
-- PF: `pf_status`, `pf`, `power_failure`, `power_status`
-- Time: `timestamp`, `time`, `recorded_at`
-
-Test HTTP ingestion:
+## تست دریافت تله‌متری با curl
 
 ```bash
 curl -X POST http://localhost:8000/api/ingest/telemetry \
@@ -138,72 +112,7 @@ curl -X POST http://localhost:8000/api/ingest/telemetry \
   }'
 ```
 
-## Real MQTT Integration
-
-The frontend must not connect to MQTT. Real devices publish JSON to the MQTT broker, and the Laravel listener ingests those messages server-side.
-
-Required MQTT `.env` values:
-
-```dotenv
-MQTT_HOST=127.0.0.1
-MQTT_PORT=1883
-MQTT_USERNAME=
-MQTT_PASSWORD=
-MQTT_CLIENT_ID=blood-refrigerator-monitor
-MQTT_TOPIC=devices/+/telemetry
-MQTT_QOS=0
-MQTT_KEEP_ALIVE=60
-MQTT_USE_TLS=false
-MQTT_DEVICE_CODE_TOPIC_REGEX=
-```
-
-If `device_code` is not present in JSON, the app can derive it from these topic formats by default:
-
-- `refrigerators/{device_code}/telemetry`
-- `devices/{device_code}/telemetry`
-- `clients/{client_code}/refrigerators/{device_code}/telemetry`
-
-For a custom topic format, set `MQTT_DEVICE_CODE_TOPIC_REGEX` with either a named `device_code` group or one capture group. Example:
-
-```dotenv
-MQTT_DEVICE_CODE_TOPIC_REGEX=/^site\/[^\/]+\/unit\/(?P<device_code>[^\/]+)\/data$/
-```
-
-Example MQTT topic:
-
-```text
-devices/device-001/telemetry
-```
-
-Example payload where the device code comes from the topic:
-
-```json
-{
-  "t1": 4.5,
-  "t2": 4.6,
-  "t3": 4.7,
-  "t4": 4.8,
-  "door": "closed",
-  "power_status": "normal",
-  "time": "2026-05-07T10:20:00Z"
-}
-```
-
-Run in development:
-
-```bash
-php artisan mqtt:listen
-```
-
-For a single-message test:
-
-```bash
-php artisan mqtt:listen --once
-```
-
-The listener logs connection attempts, subscribed topics, invalid JSON, validation failures, unknown device codes, and successful telemetry writes. Bad messages are skipped so the listener can continue.
-
-To test topic-derived device codes without a broker, send `X-MQTT-Topic`:
+اگر کد دستگاه داخل JSON نیست، می‌توان آن را از تاپیک MQTT دریافت کرد:
 
 ```bash
 curl -X POST http://localhost:8000/api/ingest/telemetry \
@@ -222,23 +131,85 @@ curl -X POST http://localhost:8000/api/ingest/telemetry \
   }'
 ```
 
-Production mode A: process-capable server
+## MQTT
 
-Run `php artisan mqtt:listen` under Supervisor, systemd, a container process manager, or an equivalent always-on worker. Restart it on deploys and configure log retention.
+فرانت‌اند مستقیم به MQTT وصل نمی‌شود. پیام‌های MQTT سمت سرور دریافت شده و از همان سرویس دریافت تله‌متری ذخیره می‌شوند.
 
-Production mode B: shared hosting or low-cost hosting
+نمونه تنظیمات:
 
-Many shared PHP hosts do not allow permanent processes. In that case, use an external MQTT bridge, gateway, Node-RED flow, ThingsBoard integration, broker webhook, or small worker service to subscribe to MQTT and POST JSON to `POST /api/ingest/telemetry` with the `X-Ingestion-Secret` header.
+```dotenv
+MQTT_HOST=127.0.0.1
+MQTT_PORT=1883
+MQTT_USERNAME=
+MQTT_PASSWORD=
+MQTT_CLIENT_ID=blood-refrigerator-monitor
+MQTT_TOPIC=devices/+/telemetry
+MQTT_QOS=0
+MQTT_KEEP_ALIVE=60
+MQTT_USE_TLS=false
+MQTT_DEVICE_CODE_TOPIC_REGEX=
+```
 
-## API
+اجرای listener در محیط محلی:
 
-Session auth:
+```bash
+php artisan mqtt:listen
+```
+
+برای تست یک پیام:
+
+```bash
+php artisan mqtt:listen --once
+```
+
+فرمت‌های پیش‌فرض تاپیک برای استخراج کد دستگاه:
+
+- `refrigerators/{device_code}/telemetry`
+- `devices/{device_code}/telemetry`
+- `clients/{client_code}/refrigerators/{device_code}/telemetry`
+
+برای فرمت اختصاصی، `MQTT_DEVICE_CODE_TOPIC_REGEX` را با یک گروه `device_code` تنظیم کنید.
+
+## حالت‌های production برای MQTT
+
+حالت ۱، سرور دارای فرایند دائمی:
+
+`php artisan mqtt:listen` را با Supervisor، systemd، Docker، Render worker، یا process manager مشابه اجرا کنید. روی deploy ری‌استارت و برای لاگ‌ها retention تنظیم شود.
+
+حالت ۲، هاست اشتراکی:
+
+اگر هاست PHP اجازه فرایند دائمی نمی‌دهد، یک MQTT bridge بیرونی، Node-RED، broker webhook، worker کوچک، یا gateway باید MQTT را subscribe کند و پیام JSON را به `POST /api/ingest/telemetry` با هدر `X-Ingestion-Secret` بفرستد.
+
+## PWA
+
+فایل‌های PWA در `public/` قرار دارند:
+
+- `manifest.webmanifest`
+- `sw.js`
+- `offline.html`
+- `icons/icon-192.png`
+- `icons/icon-512.png`
+- `icons/maskable-icon-512.png`
+- `icons/apple-touch-icon.png`
+
+نکات تست:
+
+- روی `localhost` یا HTTPS اجرا کنید.
+- `npm run build` را اجرا کنید.
+- در Chrome DevTools بخش Application، Manifest و Service Worker را بررسی کنید.
+- حالت Offline را فعال و صفحه را reload کنید؛ باید صفحه fallback فارسی RTL نمایش داده شود.
+
+Service worker فقط assetهای استاتیک و صفحه آفلاین را cache می‌کند. پاسخ‌های `/api/*`، تله‌متری، هشدارها، تاریخچه، کاربران، مشتریان، یخچال‌ها و APIهای مدیریتی cache نمی‌شوند. در حالت آفلاین، سامانه صریحا اعلام می‌کند که پایش زنده به اتصال اینترنت نیاز دارد.
+
+## APIهای اصلی
+
+احراز هویت:
 
 - `POST /api/login`
 - `POST /api/logout`
 - `GET /api/me`
 
-Devices:
+یخچال‌ها:
 
 - `GET /api/devices`
 - `GET /api/devices/{device}`
@@ -246,7 +217,7 @@ Devices:
 - `GET /api/devices/{device}/history`
 - `GET /api/devices/{device}/history/export`
 
-Admin:
+مدیریت:
 
 - `GET|POST /api/admin/customers`
 - `GET|PUT|DELETE /api/admin/customers/{customer}`
@@ -257,37 +228,32 @@ Admin:
 - `GET|PUT|DELETE /api/admin/devices/{device}`
 - `GET /api/admin/devices/{device}/raw-telemetry`
 
-Ingestion:
+دریافت تله‌متری:
 
 - `POST /api/ingest/telemetry`
 
-Logged-in users only receive devices where `devices.customer_id` matches their `users.customer_id`.
+کاربر مشتری فقط یخچال‌هایی را می‌بیند که `devices.customer_id` آن‌ها با `users.customer_id` خودش برابر باشد. کاربر مدیر `customer_id = null` دارد.
 
-Simple MVP rate limits are enabled for login and ingestion. Tune these values in `.env` if needed:
+## چک‌لیست production
 
-```dotenv
-LOGIN_RATE_LIMIT_PER_MINUTE=5
-INGESTION_RATE_LIMIT_PER_MINUTE=120
-```
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_KEY` قوی و واقعی
+- `INGESTION_SECRET` قوی و غیرقابل حدس
+- HTTPS فعال
+- اطلاعات واقعی دیتابیس تنظیم شده باشد
+- `npm run build`
+- `php artisan config:cache`
+- `php artisan route:cache`
+- `php artisan view:cache`
+- backup دیتابیس فعال باشد
+- حالت deploy برای MQTT مشخص شده باشد: process دائمی یا bridge/HTTP forwarding
+- مقدارهای واقعی MQTT و لیست واقعی مشتری/کاربر/دستگاه جایگزین داده‌های دمو شوند
 
-## Production Checklist
+## تنظیم payload واقعی
 
-- Set `APP_DEBUG=false`.
-- Use a strong, random `INGESTION_SECRET`.
-- Serve the dashboard over HTTPS.
-- Run `npm run build`.
-- Verify `manifest.webmanifest` and `/sw.js` are reachable.
-- Confirm the PWA install prompt works on a target mobile or desktop browser.
-- Confirm offline fallback appears and does not show stale telemetry.
-- Run `php artisan config:cache route:cache view:cache`.
-- Confirm whether `php artisan mqtt:listen` can run continuously on the target host; if not, use an external MQTT bridge that posts to `POST /api/ingest/telemetry`.
-
-## Real Payload Adjustment
-
-When the real device JSON arrives, update the field map in:
+parser فعلی فرمت اصلی و چند نام جایگزین را می‌پذیرد. پس از دریافت نمونه JSON واقعی دستگاه‌ها، در صورت نیاز فقط mapping این فایل را تنظیم کنید:
 
 ```text
 app/Services/Telemetry/TelemetryPayloadParser.php
 ```
-
-Controllers, models, database schema, MQTT handling, and frontend components do not need to change unless the business fields themselves change.

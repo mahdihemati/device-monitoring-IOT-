@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'blood-refrigerator-monitor-v1';
+const CACHE_VERSION = 'blood-refrigerator-monitor-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline.html';
 const STATIC_ASSETS = [

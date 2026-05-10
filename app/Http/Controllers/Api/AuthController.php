@@ -19,7 +19,7 @@ class AuthController extends Controller
 
         if (! Auth::attempt($credentials)) {
             throw ValidationException::withMessages([
-                'username' => ['The provided credentials are invalid.'],
+                'username' => ['نام کاربری یا رمز عبور نادرست است.'],
             ]);
         }
 
@@ -38,7 +38,7 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return response()->json([
-            'message' => 'Logged out.',
+            'message' => 'از حساب خارج شدید.',
         ]);
     }
 

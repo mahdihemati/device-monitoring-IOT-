@@ -65,7 +65,7 @@ class AdminCustomerController extends Controller
         $customer->delete();
 
         return response()->json([
-            'message' => 'Client deleted.',
+            'message' => 'مشتری حذف شد.',
         ]);
     }
 

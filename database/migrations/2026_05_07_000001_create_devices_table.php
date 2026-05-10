@@ -14,6 +14,8 @@ return new class extends Migration
             $table->string('device_code')->unique();
             $table->string('name');
             $table->string('serial_number')->nullable();
+            $table->string('location')->nullable();
+            $table->text('notes')->nullable();
             $table->timestamp('last_seen_at')->nullable();
             $table->timestamps();
         });

@@ -27,7 +27,7 @@ class AlarmEvaluationService
                 device: $device,
                 type: Alarm::TYPE_DEVICE_OFFLINE,
                 severity: Alarm::SEVERITY_CRITICAL,
-                message: 'Refrigerator is offline or has not reported telemetry recently.',
+                message: 'یخچال آفلاین است یا در بازه اخیر داده‌ای ارسال نکرده است.',
                 triggeredAt: now(),
             );
 
@@ -120,7 +120,7 @@ class AlarmEvaluationService
                 type: Alarm::TYPE_HIGH_TEMPERATURE,
                 severity: Alarm::SEVERITY_CRITICAL,
                 message: sprintf(
-                    'High temperature on %s. Highest reading %.1f C exceeds %.1f C.',
+                    'دمای بالا در %s. بیشترین مقدار %.1f درجه از حد %.1f درجه بیشتر است.',
                     $highReadings->keys()->implode(', '),
                     $highest,
                     $max,
@@ -143,7 +143,7 @@ class AlarmEvaluationService
                 type: Alarm::TYPE_LOW_TEMPERATURE,
                 severity: Alarm::SEVERITY_CRITICAL,
                 message: sprintf(
-                    'Low temperature on %s. Lowest reading %.1f C is below %.1f C.',
+                    'دمای پایین در %s. کمترین مقدار %.1f درجه از حد %.1f درجه کمتر است.',
                     $lowReadings->keys()->implode(', '),
                     $lowest,
                     $min,
@@ -167,7 +167,7 @@ class AlarmEvaluationService
                 device: $device,
                 type: Alarm::TYPE_INVALID_SENSOR_READING,
                 severity: Alarm::SEVERITY_WARNING,
-                message: sprintf('Missing or invalid readings for %s.', $missingSensors->keys()->implode(', ')),
+                message: sprintf('داده %s موجود نیست یا معتبر نیست.', $missingSensors->keys()->implode(', ')),
                 triggeredAt: $telemetry->recorded_at,
             );
 
@@ -192,7 +192,7 @@ class AlarmEvaluationService
                 device: $device,
                 type: Alarm::TYPE_DOOR_OPEN,
                 severity: Alarm::SEVERITY_WARNING,
-                message: 'Door is open.',
+                message: 'درب یخچال باز است.',
                 triggeredAt: $telemetry->recorded_at,
             );
 
@@ -216,7 +216,7 @@ class AlarmEvaluationService
                 device: $device,
                 type: Alarm::TYPE_PF_FAULT,
                 severity: $severity,
-                message: sprintf('PF status is %s.', $pfStatus),
+                message: sprintf('وضعیت PF در حالت %s است.', $this->statusLabel($pfStatus)),
                 triggeredAt: $telemetry->recorded_at,
             );
 
@@ -234,11 +234,21 @@ class AlarmEvaluationService
     private function sensorReadings(Telemetry $telemetry): array
     {
         return [
-            'Sensor 1' => $telemetry->temperature_1,
-            'Sensor 2' => $telemetry->temperature_2,
-            'Sensor 3' => $telemetry->temperature_3,
-            'Sensor 4' => $telemetry->temperature_4,
+            'سنسور ۱' => $telemetry->temperature_1,
+            'سنسور ۲' => $telemetry->temperature_2,
+            'سنسور ۳' => $telemetry->temperature_3,
+            'سنسور ۴' => $telemetry->temperature_4,
         ];
+    }
+
+    private function statusLabel(string $status): string
+    {
+        return match ($status) {
+            'warning', 'warn' => 'هشدار',
+            'fault', 'failed', 'failure', 'fail', 'error', 'alarm', 'trip', 'tripped' => 'خطا',
+            'offline' => 'آفلاین',
+            default => $status,
+        };
     }
 
     private function activate(
