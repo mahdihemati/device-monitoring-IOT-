@@ -1,9 +1,11 @@
+import { alarmTypeLabels } from './localization';
+
 export function formatDateTime(value: string | null): string {
     if (! value) {
-        return 'No data';
+        return 'بدون داده';
     }
 
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat('fa-IR', {
         month: 'short',
         day: '2-digit',
         hour: '2-digit',
@@ -13,10 +15,10 @@ export function formatDateTime(value: string | null): string {
 
 export function formatLongDateTime(value: string | null): string {
     if (! value) {
-        return 'No data';
+        return 'بدون داده';
     }
 
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat('fa-IR', {
         year: 'numeric',
         month: 'short',
         day: '2-digit',
@@ -27,7 +29,10 @@ export function formatLongDateTime(value: string | null): string {
 }
 
 export function formatTemperature(value: number | null): string {
-    return value === null ? '--' : `${value.toFixed(1)} C`;
+    return value === null ? '--' : `${new Intl.NumberFormat('fa-IR', {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+    }).format(value)} °C`;
 }
 
 export function chartTime(value: string | null): string {
@@ -35,13 +40,17 @@ export function chartTime(value: string | null): string {
         return '';
     }
 
-    return new Intl.DateTimeFormat(undefined, {
+    return new Intl.DateTimeFormat('fa-IR', {
         hour: '2-digit',
         minute: '2-digit',
     }).format(new Date(value));
 }
 
 export function formatAlarmType(value: string): string {
+    if (value in alarmTypeLabels) {
+        return alarmTypeLabels[value as keyof typeof alarmTypeLabels];
+    }
+
     return value
         .toLowerCase()
         .split('_')

@@ -1,4 +1,5 @@
 import type { Device, OverallStatus, Telemetry } from '../types';
+import { alarmCountText, statusLabels, toPersianNumber } from './localization';
 
 export type RefrigeratorStatusLevel = OverallStatus;
 
@@ -60,44 +61,44 @@ export function getRefrigeratorStatus(device: Device): RefrigeratorStatus {
     if (! isRecent(device.last_seen_at)) {
         return {
             level: 'offline',
-            label: 'Offline',
-            detail: `No recent telemetry in ${OFFLINE_AFTER_MINUTES}+ minutes`,
+            label: statusLabels.offline,
+            detail: `در ${toPersianNumber(OFFLINE_AFTER_MINUTES)} دقیقه اخیر داده‌ای دریافت نشده است`,
         };
     }
 
     if (powerStatus !== '' && ! isPowerNormal(powerStatus)) {
         return {
             level: 'critical',
-            label: 'Critical',
-            detail: 'PF status requires attention',
+            label: statusLabels.critical,
+            detail: 'وضعیت PF نیاز به بررسی فوری دارد',
         };
     }
 
     if (doorStatus !== '' && ! isDoorNormal(doorStatus)) {
         return {
             level: 'warning',
-            label: 'Warning',
-            detail: 'Door is not closed',
+            label: statusLabels.warning,
+            detail: 'درب یخچال بسته نیست',
         };
     }
 
     if (doorStatus === '' || powerStatus === '' || ! hasAllSensorReadings(latest)) {
         return {
             level: 'warning',
-            label: 'Warning',
-            detail: 'One or more sensor readings are missing',
+            label: statusLabels.warning,
+            detail: 'یک یا چند مقدار سنسور موجود نیست',
         };
     }
 
     return {
         level: 'normal',
-        label: 'Normal',
-        detail: 'Reporting normally',
+        label: statusLabels.normal,
+        detail: 'گزارش‌دهی عادی است',
     };
 }
 
 function statusFromOverallStatus(level: OverallStatus, activeAlarmCount: number): RefrigeratorStatus {
-    const alarmDetail = activeAlarmCount === 1 ? '1 active alarm' : `${activeAlarmCount} active alarms`;
+    const alarmDetail = alarmCountText(activeAlarmCount);
 
     return matchStatus(level, alarmDetail);
 }
@@ -107,26 +108,26 @@ function matchStatus(level: OverallStatus, alarmDetail: string): RefrigeratorSta
         case 'normal':
             return {
                 level,
-                label: 'Normal',
-                detail: 'No active alarms',
+                label: statusLabels.normal,
+                detail: 'هشدار فعالی وجود ندارد',
             };
         case 'warning':
             return {
                 level,
-                label: 'Warning',
+                label: statusLabels.warning,
                 detail: alarmDetail,
             };
         case 'critical':
             return {
                 level,
-                label: 'Critical',
+                label: statusLabels.critical,
                 detail: alarmDetail,
             };
         case 'offline':
             return {
                 level,
-                label: 'Offline',
-                detail: alarmDetail === '0 active alarms' ? `No recent telemetry in ${OFFLINE_AFTER_MINUTES}+ minutes` : alarmDetail,
+                label: statusLabels.offline,
+                detail: alarmDetail === alarmCountText(0) ? `در ${toPersianNumber(OFFLINE_AFTER_MINUTES)} دقیقه اخیر داده‌ای دریافت نشده است` : alarmDetail,
             };
     }
 }

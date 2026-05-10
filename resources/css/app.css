@@ -8,23 +8,57 @@
 @source '../**/*.ts';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: Vazirmatn, IRANSans, Tahoma, Arial, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
 html {
-    background: #eef2f6;
+    background: #f8fafc;
+    direction: rtl;
+    font-feature-settings: 'ss01' 1;
 }
 
 body {
     min-height: 100vh;
+    min-height: 100dvh;
     background:
-        linear-gradient(180deg, rgba(238, 242, 246, 0.96), rgba(248, 250, 252, 0.98)),
-        repeating-linear-gradient(90deg, rgba(15, 23, 42, 0.03) 0, rgba(15, 23, 42, 0.03) 1px, transparent 1px, transparent 56px);
+        linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.98)),
+        repeating-linear-gradient(90deg, rgba(15, 23, 42, 0.025) 0, rgba(15, 23, 42, 0.025) 1px, transparent 1px, transparent 64px);
     color: #172033;
+    direction: rtl;
+    text-align: right;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+}
+
+@supports (padding: max(0px)) {
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    header {
+        padding-top: env(safe-area-inset-top);
+    }
 }
 
 button,
-input {
+input,
+textarea,
+select {
     letter-spacing: 0;
+}
+
+input,
+textarea,
+select {
+    text-align: right;
+}
+
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+::selection {
+    background: rgba(14, 165, 233, 0.22);
 }

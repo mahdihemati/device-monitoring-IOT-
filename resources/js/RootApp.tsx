@@ -16,7 +16,7 @@ function RequireAuth({ children }: { children: ReactElement }) {
     if (loading) {
         return (
             <div className="p-6">
-                <LoadingState label="Checking session" />
+                <LoadingState label="در حال بررسی نشست کاربر" />
             </div>
         );
     }
@@ -34,7 +34,7 @@ function RequireAdmin({ children }: { children: ReactElement }) {
     if (loading) {
         return (
             <div className="p-6">
-                <LoadingState label="Checking admin access" />
+                <LoadingState label="در حال بررسی دسترسی مدیریت" />
             </div>
         );
     }

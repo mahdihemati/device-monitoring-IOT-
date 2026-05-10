@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, CircleAlert, CircleSlash2 } from 'lucide-react';
 import type { RefrigeratorStatusLevel } from '../utils/refrigeratorStatus';
+import { statusLabels } from '../utils/localization';
 
 interface OverallStatusBadgeProps {
     level: RefrigeratorStatusLevel;
@@ -22,14 +23,15 @@ const statusIcons = {
 
 export function OverallStatusBadge({ level, label }: OverallStatusBadgeProps) {
     const Icon = statusIcons[level];
+    const displayLabel = statusLabels[level] ?? label;
 
     return (
         <span
-            aria-label={`Overall status: ${label}`}
+            aria-label={`وضعیت کلی: ${displayLabel}`}
             className={`inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold ${statusStyles[level]}`}
         >
             <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            {label}
+            {displayLabel}
         </span>
     );
 }

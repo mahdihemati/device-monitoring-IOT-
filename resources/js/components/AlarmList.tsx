@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, CircleAlert } from 'lucide-react';
 import type { Alarm, AlarmSeverity } from '../types';
 import { formatAlarmType, formatDateTime } from '../utils/format';
+import { severityLabels } from '../utils/localization';
 import { EmptyState } from './StateBlocks';
 
 interface AlarmListProps {
@@ -63,20 +64,21 @@ function AlarmRow({
     showDevice: boolean;
 }) {
     const SeverityIcon = severityIcons[alarm.severity];
+    const severityLabel = severityLabels[alarm.severity];
 
     return (
-        <article className="grid gap-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <article className="grid gap-3 px-4 py-4 transition hover:bg-slate-50/80 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold capitalize ${severityStyles[alarm.severity]}`}>
+                    <span className={`inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold ${severityStyles[alarm.severity]}`}>
                         <SeverityIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                        {alarm.severity}
+                        {severityLabel}
                     </span>
                     <span className="text-sm font-semibold text-slate-950">{formatAlarmType(alarm.type)}</span>
                     {alarm.is_resolved ? (
                         <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
                             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                            Resolved
+                            رفع‌شده
                         </span>
                     ) : null}
                 </div>
@@ -84,14 +86,14 @@ function AlarmRow({
                 {showDevice ? (
                     <p className="mt-2 truncate text-sm font-medium text-slate-700">
                         {alarm.device.name}
-                        <span className="ml-2 font-mono text-xs text-slate-500">{alarm.device.device_code}</span>
+                        <span className="me-2 font-mono text-xs text-slate-500">{alarm.device.device_code}</span>
                     </p>
                 ) : null}
 
                 <p className="mt-2 text-sm leading-6 text-slate-600">{alarm.message}</p>
                 <p className="mt-1 text-xs font-medium text-slate-500">
-                    Triggered {formatDateTime(alarm.triggered_at)}
-                    {alarm.is_resolved ? ` - Resolved ${formatDateTime(alarm.resolved_at)}` : ''}
+                    شروع: {formatDateTime(alarm.triggered_at)}
+                    {alarm.is_resolved ? ` | رفع‌شده: ${formatDateTime(alarm.resolved_at)}` : ''}
                 </p>
             </div>
 
@@ -100,9 +102,9 @@ function AlarmRow({
                     type="button"
                     onClick={() => onResolve(alarm.id)}
                     disabled={resolving}
-                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:text-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+                    className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-emerald-200 bg-white px-3 text-sm font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
                 >
-                    {resolving ? 'Resolving' : 'Resolve'}
+                    {resolving ? 'در حال ثبت' : 'رفع هشدار'}
                 </button>
             ) : null}
         </article>

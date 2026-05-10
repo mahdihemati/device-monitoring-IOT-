@@ -1,0 +1,30 @@
+{
+    "name": "داشبورد پایش یخچال‌های خون",
+    "short_name": "پایش خون",
+    "description": "پایش یخچال‌های نگهداری خون، قرائت سنسورها، وضعیت درب، وضعیت PF، هشدارها و تاریخچه.",
+    "start_url": "/dashboard",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#eef2f6",
+    "theme_color": "#0f172a",
+    "orientation": "portrait-primary",
+    "categories": ["medical", "productivity", "utilities"],
+    "icons": [
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "/icons/maskable-icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

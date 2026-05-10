@@ -58,6 +58,38 @@ For a production-style frontend build:
 npm run build
 ```
 
+## PWA Installable App
+
+The dashboard is configured as an installable PWA for quick phone and desktop access.
+
+Build the production assets:
+
+```bash
+npm run build
+```
+
+PWA files are served from `public/`:
+
+- `manifest.webmanifest`
+- `sw.js`
+- `offline.html`
+- `icons/icon-192.png`
+- `icons/icon-512.png`
+- `icons/maskable-icon-512.png`
+
+Test installability:
+
+1. Serve the app over HTTPS in production, or use `localhost` for local testing.
+2. Run `npm run build`.
+3. Open the app in Chrome or Edge.
+4. Confirm the browser shows install support, or open DevTools > Application > Manifest.
+5. Use DevTools > Application > Service Workers to confirm `/sw.js` is registered.
+6. Enable offline mode in DevTools and reload a page to verify the offline fallback.
+
+Offline behavior is intentionally conservative. The service worker caches static build assets and the offline page, but it does not cache `/api/*` responses. Telemetry, alarms, history, users, clients, and admin data require live network access and are not shown from cache.
+
+Live refrigerator monitoring requires an internet connection. Do not treat the offline fallback as an operational monitoring screen.
+
 ## Telemetry Ingestion
 
 The frontend never connects to MQTT. It only reads Laravel APIs. Telemetry can enter through the HTTP endpoint or the MQTT listener; both paths use the same parser and ingestion service.
@@ -244,6 +276,9 @@ INGESTION_RATE_LIMIT_PER_MINUTE=120
 - Use a strong, random `INGESTION_SECRET`.
 - Serve the dashboard over HTTPS.
 - Run `npm run build`.
+- Verify `manifest.webmanifest` and `/sw.js` are reachable.
+- Confirm the PWA install prompt works on a target mobile or desktop browser.
+- Confirm offline fallback appears and does not show stale telemetry.
 - Run `php artisan config:cache route:cache view:cache`.
 - Confirm whether `php artisan mqtt:listen` can run continuously on the target host; if not, use an external MQTT bridge that posts to `POST /api/ingest/telemetry`.
 

@@ -26,8 +26,16 @@ export function getErrorMessage(error: unknown): string {
             }
         }
 
-        return axiosError.response?.data?.message ?? axiosError.message;
+        if (axiosError.response?.data?.message) {
+            return axiosError.response.data.message;
+        }
+
+        if (! axiosError.response) {
+            return 'ارتباط با سرور برقرار نشد.';
+        }
+
+        return 'خطای سرور رخ داد.';
     }
 
-    return 'Something went wrong.';
+    return 'خطایی رخ داد.';
 }

@@ -1,4 +1,5 @@
 import { CheckCircle2, CircleAlert, CircleSlash2 } from 'lucide-react';
+import { statusValueLabel } from '../utils/localization';
 
 interface StatusBadgeProps {
     value: string | null;
@@ -9,7 +10,7 @@ export function StatusBadge({ value, type }: StatusBadgeProps) {
     const normalized = value?.trim().toLowerCase() ?? '';
     const isNormal = type === 'door' ? normalized === 'closed' : normalized === 'normal';
     const isUnknown = normalized === 'unknown' || normalized === '';
-    const displayValue = isUnknown ? 'unknown' : normalized.replace(/[_-]/g, ' ');
+    const displayValue = statusValueLabel(value, type);
     const Icon = isUnknown ? CircleSlash2 : isNormal ? CheckCircle2 : CircleAlert;
 
     const classes = isUnknown
@@ -22,8 +23,8 @@ export function StatusBadge({ value, type }: StatusBadgeProps) {
 
     return (
         <span
-            aria-label={`${type === 'door' ? 'Door status' : 'PF status'}: ${displayValue}`}
-            className={`inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold capitalize ${classes}`}
+            aria-label={`${type === 'door' ? 'وضعیت درب' : 'وضعیت PF'}: ${displayValue}`}
+            className={`inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold ${classes}`}
         >
             <Icon className="h-3.5 w-3.5" aria-hidden="true" />
             {displayValue}

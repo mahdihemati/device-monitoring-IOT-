@@ -1,12 +1,13 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
-import { Building2, Code2, KeyRound, Pencil, Plus, RefreshCw, Save, Thermometer, Trash2, Users, X } from 'lucide-react';
+import { BellRing, Building2, Code2, KeyRound, Pencil, Plus, RefreshCw, Save, Thermometer, Trash2, Users, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api, getErrorMessage } from '../api/client';
 import { EmptyState, ErrorBanner, LoadingState } from '../components/StateBlocks';
 import { SummaryStatCard } from '../components/SummaryStatCard';
 import type { Customer, Device, User, UserRole } from '../types';
 import { formatDateTime } from '../utils/format';
+import { formatCount, roleLabel } from '../utils/localization';
 
 export type AdminSection = 'dashboard' | 'customers' | 'users' | 'devices';
 
@@ -74,10 +75,10 @@ const emptyDeviceForm: DeviceFormState = {
 };
 
 const sectionLinks: Array<{ section: AdminSection; to: string; label: string }> = [
-    { section: 'dashboard', to: '/admin', label: 'Admin Dashboard' },
-    { section: 'customers', to: '/admin/customers', label: 'Clients' },
-    { section: 'users', to: '/admin/users', label: 'Users' },
-    { section: 'devices', to: '/admin/devices', label: 'Refrigerators' },
+    { section: 'dashboard', to: '/admin', label: 'داشبورد مدیریت' },
+    { section: 'customers', to: '/admin/customers', label: 'مشتریان' },
+    { section: 'users', to: '/admin/users', label: 'کاربران' },
+    { section: 'devices', to: '/admin/devices', label: 'یخچال‌ها' },
 ];
 
 function nullableString(value: string): string | null {
@@ -118,7 +119,7 @@ function deviceToForm(device: ManagedDevice): DeviceFormState {
 }
 
 function fieldClassName(): string {
-    return 'mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100';
+    return 'mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500';
 }
 
 function textareaClassName(): string {
@@ -126,7 +127,7 @@ function textareaClassName(): string {
 }
 
 function labelClassName(): string {
-    return 'text-xs font-semibold uppercase text-slate-500';
+    return 'text-xs font-bold text-slate-500';
 }
 
 function SectionHeader({
@@ -143,7 +144,7 @@ function SectionHeader({
     return (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-                <h2 id={id} className="text-lg font-semibold text-slate-950">{title}</h2>
+                <h2 id={id} className="text-lg font-bold text-slate-950">{title}</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p>
             </div>
             {action}
@@ -153,7 +154,7 @@ function SectionHeader({
 
 function SuccessBanner({ message }: { message: string }) {
     return (
-        <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+        <div role="status" className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm">
             {message}
         </div>
     );
@@ -260,10 +261,10 @@ export function AdminPage({ section }: { section: AdminSection }) {
         try {
             if (customerFormMode === 'edit' && editingCustomerId) {
                 await api.put(`/admin/customers/${editingCustomerId}`, payload);
-                setSuccess('Client updated.');
+                setSuccess('اطلاعات مشتری به‌روزرسانی شد.');
             } else {
                 await api.post('/admin/customers', payload);
-                setSuccess('Client created.');
+                setSuccess('مشتری جدید ایجاد شد.');
             }
 
             setCustomerFormMode(null);
@@ -276,7 +277,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
     };
 
     const deleteCustomer = async (customer: Customer) => {
-        if (! window.confirm(`Delete ${customer.name}? This will also remove assigned users, refrigerators, telemetry, and alarms.`)) {
+        if (! window.confirm(`مشتری «${customer.name}» حذف شود؟ کاربران، یخچال‌ها، داده‌های تله‌متری و هشدارهای وابسته نیز حذف می‌شوند.`)) {
             return;
         }
 
@@ -285,7 +286,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
 
         try {
             await api.delete(`/admin/customers/${customer.id}`);
-            setSuccess('Client deleted.');
+            setSuccess('مشتری حذف شد.');
             await fetchAdminData(true);
         } catch (caughtError) {
             setError(getErrorMessage(caughtError));
@@ -325,10 +326,10 @@ export function AdminPage({ section }: { section: AdminSection }) {
         try {
             if (userFormMode === 'edit' && editingUserId) {
                 await api.put(`/admin/users/${editingUserId}`, payload);
-                setSuccess('User updated.');
+                setSuccess('اطلاعات کاربر به‌روزرسانی شد.');
             } else {
                 await api.post('/admin/users', payload);
-                setSuccess('User created.');
+                setSuccess('کاربر جدید ایجاد شد.');
             }
 
             setUserFormMode(null);
@@ -341,7 +342,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
     };
 
     const deleteUser = async (user: User) => {
-        if (! window.confirm(`Delete user ${user.username}?`)) {
+        if (! window.confirm(`کاربر «${user.username}» حذف شود؟`)) {
             return;
         }
 
@@ -350,7 +351,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
 
         try {
             await api.delete(`/admin/users/${user.id}`);
-            setSuccess('User deleted.');
+            setSuccess('کاربر حذف شد.');
             await fetchAdminData(true);
         } catch (caughtError) {
             setError(getErrorMessage(caughtError));
@@ -373,7 +374,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
             await api.post(`/admin/users/${resetUserId}/reset-password`, { password: resetPassword });
             setResetUserId(null);
             setResetPassword('');
-            setSuccess('Password reset.');
+            setSuccess('رمز عبور بازنشانی شد.');
         } catch (caughtError) {
             setError(getErrorMessage(caughtError));
         } finally {
@@ -413,10 +414,10 @@ export function AdminPage({ section }: { section: AdminSection }) {
         try {
             if (deviceFormMode === 'edit' && editingDeviceId) {
                 await api.put(`/admin/devices/${editingDeviceId}`, payload);
-                setSuccess('Refrigerator updated.');
+                setSuccess('اطلاعات یخچال به‌روزرسانی شد.');
             } else {
                 await api.post('/admin/devices', payload);
-                setSuccess('Refrigerator created.');
+                setSuccess('یخچال جدید ایجاد شد.');
             }
 
             setDeviceFormMode(null);
@@ -429,7 +430,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
     };
 
     const deleteDevice = async (device: ManagedDevice) => {
-        if (! window.confirm(`Delete refrigerator ${device.name}? This will also remove its telemetry and alarms.`)) {
+        if (! window.confirm(`یخچال «${device.name}» حذف شود؟ داده‌های تله‌متری و هشدارهای آن نیز حذف می‌شوند.`)) {
             return;
         }
 
@@ -438,7 +439,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
 
         try {
             await api.delete(`/admin/devices/${device.id}`);
-            setSuccess('Refrigerator deleted.');
+            setSuccess('یخچال حذف شد.');
             await fetchAdminData(true);
         } catch (caughtError) {
             setError(getErrorMessage(caughtError));
@@ -466,37 +467,39 @@ export function AdminPage({ section }: { section: AdminSection }) {
     };
 
     if (loading) {
-        return <LoadingState label="Loading admin tools" />;
+        return <LoadingState label="در حال بارگذاری ابزارهای مدیریت" />;
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="space-y-6">
+            <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70 sm:p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                 <div>
-                    <h1 className="text-2xl font-semibold text-slate-950 sm:text-3xl">Admin Management</h1>
+                    <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">مدیریت سامانه</h1>
                     <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                        Manage clients, login users, and blood refrigerator assignments for the monitoring system.
+                        مدیریت مشتریان، کاربران ورود و تخصیص یخچال‌های خون در سامانه پایش.
                     </p>
                 </div>
                 <button
                     type="button"
                     onClick={() => void fetchAdminData(true)}
-                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-sky-200 hover:text-sky-700 sm:w-auto"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm transition hover:border-sky-200 hover:text-sky-700 sm:w-auto"
                 >
                     <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
-                    Refresh
+                    به‌روزرسانی
                 </button>
+                </div>
             </div>
 
-            <nav className="flex gap-2 overflow-x-auto" aria-label="Admin navigation">
+            <nav className="flex gap-2 overflow-x-auto rounded-lg border border-slate-200 bg-white p-1 shadow-sm shadow-slate-200/60" aria-label="ناوبری مدیریت">
                 {sectionLinks.map((item) => (
                     <Link
                         key={item.section}
                         to={item.to}
-                        className={`inline-flex h-10 shrink-0 items-center rounded-lg border px-3 text-sm font-semibold transition ${
+                        className={`inline-flex h-10 shrink-0 items-center rounded-md border px-3 text-sm font-bold transition ${
                             section === item.section
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
+                                ? 'border-sky-200 bg-sky-50 text-sky-700 shadow-sm'
+                                : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-950'
                         }`}
                     >
                         {item.label}
@@ -511,35 +514,35 @@ export function AdminPage({ section }: { section: AdminSection }) {
                 <section className="space-y-5" aria-labelledby="admin-overview-heading">
                     <SectionHeader
                         id="admin-overview-heading"
-                        title="Admin Dashboard"
-                        description="A simple operational overview of configured clients, users, and refrigerators."
+                        title="داشبورد مدیریت"
+                        description="نمای کلی مشتریان، کاربران و یخچال‌های تعریف‌شده در سامانه."
                     />
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-                        <SummaryStatCard label="Clients" value={summary.clients} tone="neutral" description="Managed organizations" icon={<Building2 className="h-5 w-5" aria-hidden="true" />} />
-                        <SummaryStatCard label="Users" value={summary.users} tone="normal" description="Login accounts" icon={<Users className="h-5 w-5" aria-hidden="true" />} />
-                        <SummaryStatCard label="Admins" value={summary.admins} tone="neutral" description="Company users" icon={<KeyRound className="h-5 w-5" aria-hidden="true" />} />
-                        <SummaryStatCard label="Refrigerators" value={summary.refrigerators} tone="normal" description="Assigned units" icon={<Thermometer className="h-5 w-5" aria-hidden="true" />} />
-                        <SummaryStatCard label="Active Alarms" value={summary.activeAlarms} tone={summary.activeAlarms > 0 ? 'warning' : 'normal'} description="Open conditions" icon={<Thermometer className="h-5 w-5" aria-hidden="true" />} />
+                        <SummaryStatCard label="مشتریان" value={summary.clients} tone="neutral" description="سازمان‌های مدیریت‌شده" icon={<Building2 className="h-5 w-5" aria-hidden="true" />} />
+                        <SummaryStatCard label="کاربران" value={summary.users} tone="normal" description="حساب‌های ورود" icon={<Users className="h-5 w-5" aria-hidden="true" />} />
+                        <SummaryStatCard label="مدیران" value={summary.admins} tone="neutral" description="کاربران سامانه" icon={<KeyRound className="h-5 w-5" aria-hidden="true" />} />
+                        <SummaryStatCard label="یخچال‌ها" value={summary.refrigerators} tone="normal" description="واحدهای تخصیص‌یافته" icon={<Thermometer className="h-5 w-5" aria-hidden="true" />} />
+                        <SummaryStatCard label="هشدارهای فعال" value={summary.activeAlarms} tone={summary.activeAlarms > 0 ? 'warning' : 'normal'} description="شرایط باز" icon={<BellRing className="h-5 w-5" aria-hidden="true" />} />
                     </div>
 
                     <div className="grid gap-4 lg:grid-cols-3">
-                        <OverviewPanel title="Clients" link="/admin/customers" actionLabel="Manage clients">
+                        <OverviewPanel title="مشتریان" link="/admin/customers" actionLabel="مدیریت مشتریان">
                             {customers.slice(0, 5).map((customer) => (
-                                <OverviewRow key={customer.id} title={customer.name} meta={`${customer.devices_count ?? 0} refrigerators`} />
+                                <OverviewRow key={customer.id} title={customer.name} meta={`${formatCount(customer.devices_count ?? 0)} یخچال`} />
                             ))}
-                            {customers.length === 0 ? <p className="text-sm text-slate-500">No clients configured.</p> : null}
+                            {customers.length === 0 ? <p className="text-sm text-slate-500">هنوز مشتری‌ای تعریف نشده است.</p> : null}
                         </OverviewPanel>
-                        <OverviewPanel title="Users" link="/admin/users" actionLabel="Manage users">
+                        <OverviewPanel title="کاربران" link="/admin/users" actionLabel="مدیریت کاربران">
                             {users.slice(0, 5).map((user) => (
-                                <OverviewRow key={user.id} title={user.name} meta={`${user.role} - ${user.customer?.name ?? 'Company'}`} />
+                                <OverviewRow key={user.id} title={user.name} meta={`${roleLabel(user.role)} - ${user.customer?.name ?? 'سامانه'}`} />
                             ))}
-                            {users.length === 0 ? <p className="text-sm text-slate-500">No users configured.</p> : null}
+                            {users.length === 0 ? <p className="text-sm text-slate-500">هنوز کاربری تعریف نشده است.</p> : null}
                         </OverviewPanel>
-                        <OverviewPanel title="Refrigerators" link="/admin/devices" actionLabel="Manage refrigerators">
+                        <OverviewPanel title="یخچال‌ها" link="/admin/devices" actionLabel="مدیریت یخچال‌ها">
                             {devices.slice(0, 5).map((device) => (
-                                <OverviewRow key={device.id} title={device.name} meta={`${device.device_code} - ${device.customer?.name ?? 'Unassigned'}`} />
+                                <OverviewRow key={device.id} title={device.name} meta={`${device.device_code} - ${device.customer?.name ?? 'بدون تخصیص'}`} />
                             ))}
-                            {devices.length === 0 ? <p className="text-sm text-slate-500">No refrigerators configured.</p> : null}
+                            {devices.length === 0 ? <p className="text-sm text-slate-500">هنوز یخچالی تعریف نشده است.</p> : null}
                         </OverviewPanel>
                     </div>
                 </section>
@@ -549,12 +552,12 @@ export function AdminPage({ section }: { section: AdminSection }) {
                 <section className="space-y-5" aria-labelledby="clients-heading">
                     <SectionHeader
                         id="clients-heading"
-                        title="Clients"
-                        description="Create and maintain client organizations that own refrigerator assignments."
+                        title="مشتریان"
+                        description="ایجاد و نگهداری سازمان‌های مشتری که مالک یخچال‌ها هستند."
                         action={(
-                            <button type="button" onClick={startCreateCustomer} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700">
+                            <button type="button" onClick={startCreateCustomer} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-bold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700">
                                 <Plus className="h-4 w-4" aria-hidden="true" />
-                                New Client
+                                مشتری جدید
                             </button>
                         )}
                     />
@@ -576,12 +579,12 @@ export function AdminPage({ section }: { section: AdminSection }) {
                 <section className="space-y-5" aria-labelledby="users-heading">
                     <SectionHeader
                         id="users-heading"
-                        title="Users"
-                        description="Create company admin accounts and client accounts assigned to a client organization."
+                        title="کاربران"
+                        description="ایجاد حساب مدیر سامانه و حساب‌های مشتری متصل به هر سازمان."
                         action={(
-                            <button type="button" onClick={startCreateUser} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700">
+                            <button type="button" onClick={startCreateUser} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-bold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700">
                                 <Plus className="h-4 w-4" aria-hidden="true" />
-                                New User
+                                کاربر جدید
                             </button>
                         )}
                     />
@@ -597,10 +600,10 @@ export function AdminPage({ section }: { section: AdminSection }) {
                         />
                     ) : null}
                     {resetUserId ? (
-                        <form onSubmit={(event) => void savePasswordReset(event)} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                        <form onSubmit={(event) => void savePasswordReset(event)} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                                 <label className="block flex-1">
-                                    <span className={labelClassName()}>New password</span>
+                                    <span className={labelClassName()}>رمز عبور جدید</span>
                                     <input
                                         type="password"
                                         value={resetPassword}
@@ -609,12 +612,12 @@ export function AdminPage({ section }: { section: AdminSection }) {
                                         className={fieldClassName()}
                                     />
                                 </label>
-                                <button type="submit" disabled={busyKey === `user-reset-${resetUserId}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">
+                                <button type="submit" disabled={busyKey === `user-reset-${resetUserId}`} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-bold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60">
                                     <KeyRound className="h-4 w-4" aria-hidden="true" />
-                                    Reset Password
+                                    بازنشانی رمز عبور
                                 </button>
                                 <button type="button" onClick={() => setResetUserId(null)} className="inline-flex h-11 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
-                                    Cancel
+                                    انصراف
                                 </button>
                             </div>
                         </form>
@@ -636,12 +639,12 @@ export function AdminPage({ section }: { section: AdminSection }) {
                 <section className="space-y-5" aria-labelledby="refrigerators-heading">
                     <SectionHeader
                         id="refrigerators-heading"
-                        title="Refrigerators"
-                        description="Assign physical blood refrigerators to clients and maintain the telemetry device code."
+                        title="یخچال‌ها"
+                        description="تخصیص یخچال‌های خون به مشتریان و نگهداری کد دستگاه تله‌متری."
                         action={(
-                            <button type="button" onClick={startCreateDevice} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700">
+                            <button type="button" onClick={startCreateDevice} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-bold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700">
                                 <Plus className="h-4 w-4" aria-hidden="true" />
-                                New Refrigerator
+                                یخچال جدید
                             </button>
                         )}
                     />
@@ -682,7 +685,7 @@ export function AdminPage({ section }: { section: AdminSection }) {
 
 function OverviewPanel({ title, link, actionLabel, children }: { title: string; link: string; actionLabel: string; children: ReactNode }) {
     return (
-        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
             <div className="flex items-center justify-between gap-3">
                 <h3 className="text-base font-semibold text-slate-950">{title}</h3>
                 <Link to={link} className="text-sm font-semibold text-sky-700 hover:text-sky-900">{actionLabel}</Link>
@@ -717,30 +720,30 @@ function CustomerForm({
     onSubmit: (event: FormEvent) => void;
 }) {
     return (
-        <form onSubmit={onSubmit} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <form onSubmit={onSubmit} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
             <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                    <span className={labelClassName()}>Client name</span>
+                    <span className={labelClassName()}>نام مشتری</span>
                     <input value={form.name} onChange={(event) => onChange({ ...form, name: event.target.value })} className={fieldClassName()} required />
                 </label>
                 <label className="block">
-                    <span className={labelClassName()}>Contact name</span>
+                    <span className={labelClassName()}>نام رابط</span>
                     <input value={form.contact_name} onChange={(event) => onChange({ ...form, contact_name: event.target.value })} className={fieldClassName()} />
                 </label>
                 <label className="block">
-                    <span className={labelClassName()}>Phone</span>
+                    <span className={labelClassName()}>تلفن</span>
                     <input value={form.phone} onChange={(event) => onChange({ ...form, phone: event.target.value })} className={fieldClassName()} />
                 </label>
                 <label className="block">
-                    <span className={labelClassName()}>Email</span>
+                    <span className={labelClassName()}>ایمیل</span>
                     <input type="email" value={form.email} onChange={(event) => onChange({ ...form, email: event.target.value })} className={fieldClassName()} />
                 </label>
                 <label className="block sm:col-span-2">
-                    <span className={labelClassName()}>Notes</span>
+                    <span className={labelClassName()}>یادداشت‌ها</span>
                     <textarea value={form.notes} onChange={(event) => onChange({ ...form, notes: event.target.value })} className={textareaClassName()} />
                 </label>
             </div>
-            <FormActions busy={busy} submitLabel={mode === 'edit' ? 'Save Client' : 'Create Client'} onCancel={onCancel} />
+            <FormActions busy={busy} submitLabel={mode === 'edit' ? 'ذخیره مشتری' : 'ایجاد مشتری'} onCancel={onCancel} />
         </form>
     );
 }
@@ -763,31 +766,31 @@ function UserForm({
     onSubmit: (event: FormEvent) => void;
 }) {
     return (
-        <form onSubmit={onSubmit} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <form onSubmit={onSubmit} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
             <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                    <span className={labelClassName()}>Name</span>
+                    <span className={labelClassName()}>نام</span>
                     <input value={form.name} onChange={(event) => onChange({ ...form, name: event.target.value })} className={fieldClassName()} required />
                 </label>
                 <label className="block">
-                    <span className={labelClassName()}>Username</span>
+                    <span className={labelClassName()}>نام کاربری</span>
                     <input value={form.username} onChange={(event) => onChange({ ...form, username: event.target.value })} className={fieldClassName()} required />
                 </label>
                 {mode === 'create' ? (
                     <label className="block">
-                        <span className={labelClassName()}>Password</span>
+                        <span className={labelClassName()}>رمز عبور</span>
                         <input type="password" minLength={8} value={form.password} onChange={(event) => onChange({ ...form, password: event.target.value })} className={fieldClassName()} required />
                     </label>
                 ) : null}
                 <label className="block">
-                    <span className={labelClassName()}>Role</span>
+                    <span className={labelClassName()}>نقش</span>
                     <select value={form.role} onChange={(event) => onChange({ ...form, role: event.target.value as UserRole })} className={fieldClassName()}>
-                        <option value="client">Client</option>
-                        <option value="admin">Admin</option>
+                        <option value="client">مشتری</option>
+                        <option value="admin">مدیر</option>
                     </select>
                 </label>
                 <label className="block sm:col-span-2">
-                    <span className={labelClassName()}>Client assignment</span>
+                    <span className={labelClassName()}>تخصیص مشتری</span>
                     <select
                         value={form.customer_id}
                         onChange={(event) => onChange({ ...form, customer_id: event.target.value })}
@@ -795,14 +798,14 @@ function UserForm({
                         className={fieldClassName()}
                         required={form.role === 'client'}
                     >
-                        <option value="">Select client</option>
+                        <option value="">انتخاب مشتری</option>
                         {customers.map((customer) => (
                             <option key={customer.id} value={customer.id}>{customer.name}</option>
                         ))}
                     </select>
                 </label>
             </div>
-            <FormActions busy={busy} submitLabel={mode === 'edit' ? 'Save User' : 'Create User'} onCancel={onCancel} />
+            <FormActions busy={busy} submitLabel={mode === 'edit' ? 'ذخیره کاربر' : 'ایجاد کاربر'} onCancel={onCancel} />
         </form>
     );
 }
@@ -825,39 +828,39 @@ function DeviceForm({
     onSubmit: (event: FormEvent) => void;
 }) {
     return (
-        <form onSubmit={onSubmit} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <form onSubmit={onSubmit} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
             <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
-                    <span className={labelClassName()}>Client</span>
+                    <span className={labelClassName()}>مشتری</span>
                     <select value={form.customer_id} onChange={(event) => onChange({ ...form, customer_id: event.target.value })} className={fieldClassName()} required>
-                        <option value="">Select client</option>
+                        <option value="">انتخاب مشتری</option>
                         {customers.map((customer) => (
                             <option key={customer.id} value={customer.id}>{customer.name}</option>
                         ))}
                     </select>
                 </label>
                 <label className="block">
-                    <span className={labelClassName()}>Refrigerator name</span>
+                    <span className={labelClassName()}>نام یخچال</span>
                     <input value={form.name} onChange={(event) => onChange({ ...form, name: event.target.value })} className={fieldClassName()} required />
                 </label>
                 <label className="block">
-                    <span className={labelClassName()}>Device code</span>
+                    <span className={labelClassName()}>کد دستگاه</span>
                     <input value={form.device_code} onChange={(event) => onChange({ ...form, device_code: event.target.value })} className={fieldClassName()} required />
                 </label>
                 <label className="block">
-                    <span className={labelClassName()}>Serial number</span>
+                    <span className={labelClassName()}>شماره سریال</span>
                     <input value={form.serial_number} onChange={(event) => onChange({ ...form, serial_number: event.target.value })} className={fieldClassName()} />
                 </label>
                 <label className="block sm:col-span-2">
-                    <span className={labelClassName()}>Location</span>
+                    <span className={labelClassName()}>موقعیت</span>
                     <input value={form.location} onChange={(event) => onChange({ ...form, location: event.target.value })} className={fieldClassName()} />
                 </label>
                 <label className="block sm:col-span-2">
-                    <span className={labelClassName()}>Notes</span>
+                    <span className={labelClassName()}>یادداشت‌ها</span>
                     <textarea value={form.notes} onChange={(event) => onChange({ ...form, notes: event.target.value })} className={textareaClassName()} />
                 </label>
             </div>
-            <FormActions busy={busy} submitLabel={mode === 'edit' ? 'Save Refrigerator' : 'Create Refrigerator'} onCancel={onCancel} />
+            <FormActions busy={busy} submitLabel={mode === 'edit' ? 'ذخیره یخچال' : 'ایجاد یخچال'} onCancel={onCancel} />
         </form>
     );
 }
@@ -867,9 +870,9 @@ function FormActions({ busy, submitLabel, onCancel }: { busy: boolean; submitLab
         <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" onClick={onCancel} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
                 <X className="h-4 w-4" aria-hidden="true" />
-                Cancel
+                انصراف
             </button>
-            <button type="submit" disabled={busy} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60">
+            <button type="submit" disabled={busy} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-sky-600 px-4 text-sm font-bold text-white shadow-sm shadow-sky-200 transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60">
                 <Save className="h-4 w-4" aria-hidden="true" />
                 {submitLabel}
             </button>
@@ -879,21 +882,21 @@ function FormActions({ busy, submitLabel, onCancel }: { busy: boolean; submitLab
 
 function CustomerTable({ customers, busyKey, onEdit, onDelete }: { customers: Customer[]; busyKey: string | null; onEdit: (customer: Customer) => void; onDelete: (customer: Customer) => void }) {
     if (customers.length === 0) {
-        return <EmptyState title="No clients" message="Create a client before assigning users or refrigerators." />;
+        return <EmptyState title="مشتری‌ای وجود ندارد" message="قبل از تخصیص کاربر یا یخچال، یک مشتری ایجاد کنید." />;
     }
 
     return (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
             <div className="overflow-x-auto">
                 <table className="min-w-[900px] divide-y divide-slate-200 text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-50/90">
                         <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Client</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Contact</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Email</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Users</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Refrigerators</th>
-                            <th className="px-4 py-3 text-right font-semibold text-slate-600">Actions</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">مشتری</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">رابط</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">ایمیل</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">کاربران</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">یخچال‌ها</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">عملیات</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -902,8 +905,8 @@ function CustomerTable({ customers, busyKey, onEdit, onDelete }: { customers: Cu
                                 <td className="px-4 py-3 font-semibold text-slate-950">{customer.name}</td>
                                 <td className="px-4 py-3 text-slate-600">{customer.contact_name ?? customer.phone ?? '--'}</td>
                                 <td className="px-4 py-3 text-slate-600">{customer.email ?? '--'}</td>
-                                <td className="px-4 py-3 text-slate-600">{customer.users_count ?? 0}</td>
-                                <td className="px-4 py-3 text-slate-600">{customer.devices_count ?? 0}</td>
+                                <td className="px-4 py-3 text-slate-600">{formatCount(customer.users_count ?? 0)}</td>
+                                <td className="px-4 py-3 text-slate-600">{formatCount(customer.devices_count ?? 0)}</td>
                                 <td className="px-4 py-3">
                                     <RowActions
                                         deleteBusy={busyKey === `customer-delete-${customer.id}`}
@@ -922,21 +925,21 @@ function CustomerTable({ customers, busyKey, onEdit, onDelete }: { customers: Cu
 
 function UserTable({ users, busyKey, onEdit, onDelete, onReset }: { users: User[]; busyKey: string | null; onEdit: (user: User) => void; onDelete: (user: User) => void; onReset: (user: User) => void }) {
     if (users.length === 0) {
-        return <EmptyState title="No users" message="Create an admin or client user to allow system access." />;
+        return <EmptyState title="کاربری وجود ندارد" message="برای دسترسی به سامانه، یک کاربر مدیر یا مشتری ایجاد کنید." />;
     }
 
     return (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
             <div className="overflow-x-auto">
                 <table className="min-w-[900px] divide-y divide-slate-200 text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-50/90">
                         <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Name</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Username</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Role</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Client</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Created</th>
-                            <th className="px-4 py-3 text-right font-semibold text-slate-600">Actions</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">نام</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">نام کاربری</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">نقش</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">مشتری</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">تاریخ ایجاد</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">عملیات</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -947,16 +950,16 @@ function UserTable({ users, busyKey, onEdit, onDelete, onReset }: { users: User[
                                     <td className="px-4 py-3 font-mono text-slate-600">{user.username}</td>
                                     <td className="px-4 py-3">
                                         <span className={`inline-flex rounded-md px-2 py-1 text-xs font-semibold ${user.role === 'admin' ? 'bg-sky-50 text-sky-700 ring-1 ring-sky-100' : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200'}`}>
-                                            {user.role}
+                                            {roleLabel(user.role)}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600">{user.customer?.name ?? 'Company'}</td>
+                                    <td className="px-4 py-3 text-slate-600">{user.customer?.name ?? 'سامانه'}</td>
                                     <td className="px-4 py-3 text-slate-600">{formatDateTime(user.created_at ?? null)}</td>
                                     <td className="px-4 py-3">
                                         <div className="flex justify-end gap-2">
                                             <button type="button" onClick={() => onReset(user)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300">
                                                 <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-                                                Reset
+                                                بازنشانی
                                             </button>
                                             <RowActions
                                                 deleteBusy={busyKey === `user-delete-${user.id}`}
@@ -989,22 +992,22 @@ function DeviceTable({
     onRawTelemetry: (device: ManagedDevice) => void;
 }) {
     if (devices.length === 0) {
-        return <EmptyState title="No refrigerators" message="Create a refrigerator and assign it to a client before telemetry arrives." />;
+        return <EmptyState title="یخچالی وجود ندارد" message="قبل از دریافت تله‌متری، یک یخچال ایجاد و به مشتری تخصیص دهید." />;
     }
 
     return (
-        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70">
             <div className="overflow-x-auto">
                 <table className="min-w-[1020px] divide-y divide-slate-200 text-sm">
-                    <thead className="bg-slate-50">
+                    <thead className="bg-slate-50/90">
                         <tr>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Refrigerator</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Device Code</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Client</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Serial</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Location</th>
-                            <th className="px-4 py-3 text-left font-semibold text-slate-600">Last Seen</th>
-                            <th className="px-4 py-3 text-right font-semibold text-slate-600">Actions</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">یخچال</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">کد دستگاه</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">مشتری</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">سریال</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">موقعیت</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">آخرین دریافت داده</th>
+                            <th className="px-4 py-3 text-right font-semibold text-slate-600">عملیات</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1020,7 +1023,7 @@ function DeviceTable({
                                     <div className="flex justify-end gap-2">
                                         <button type="button" onClick={() => onRawTelemetry(device)} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300">
                                             <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                            Raw
+                                            داده خام
                                         </button>
                                         <RowActions
                                             deleteBusy={busyKey === `device-delete-${device.id}`}
@@ -1050,34 +1053,34 @@ function RawTelemetryPanel({
     onClose: () => void;
 }) {
     return (
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" aria-labelledby="raw-telemetry-heading">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm shadow-slate-200/70" aria-labelledby="raw-telemetry-heading">
             <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h3 id="raw-telemetry-heading" className="text-base font-semibold text-slate-950">Raw Telemetry Payloads</h3>
+                    <h3 id="raw-telemetry-heading" className="text-base font-semibold text-slate-950">داده‌های خام تله‌متری</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                        Latest MQTT/JSON payloads for {device.name} ({device.device_code}). Admin-only debug view.
+                        آخرین پیام‌های MQTT/JSON برای {device.name} ({device.device_code}). این بخش فقط برای مدیران و عیب‌یابی است.
                     </p>
                 </div>
                 <button type="button" onClick={onClose} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300">
                     <X className="h-4 w-4" aria-hidden="true" />
-                    Close
+                    بستن
                 </button>
             </div>
             {loading ? (
                 <div className="p-4">
-                    <LoadingState label="Loading raw telemetry" />
+                    <LoadingState label="در حال بارگذاری داده خام" />
                 </div>
             ) : records.length === 0 ? (
                 <div className="p-4">
-                    <EmptyState title="No raw payloads" message="Raw telemetry will appear after this refrigerator reports data." />
+                    <EmptyState title="داده خامی وجود ندارد" message="پس از ارسال داده توسط این یخچال، پیام‌های خام اینجا نمایش داده می‌شوند." />
                 </div>
             ) : (
                 <div className="divide-y divide-slate-100">
                     {records.map((record) => (
                         <article key={record.id} className="p-4">
                             <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm font-semibold text-slate-950">Telemetry #{record.id}</p>
-                                <p className="text-xs font-medium text-slate-500">Recorded {formatDateTime(record.recorded_at)}</p>
+                                <p className="text-sm font-semibold text-slate-950">تله‌متری شماره {formatCount(record.id)}</p>
+                                <p className="text-xs font-medium text-slate-500">ثبت‌شده در {formatDateTime(record.recorded_at)}</p>
                             </div>
                             <pre className="max-h-72 overflow-auto rounded-lg bg-slate-950 p-3 text-xs leading-5 text-slate-100">
                                 {JSON.stringify(record.raw_payload, null, 2)}
@@ -1095,11 +1098,11 @@ function RowActions({ deleteBusy, onEdit, onDelete }: { deleteBusy: boolean; onE
         <div className="flex justify-end gap-2">
             <button type="button" onClick={onEdit} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300">
                 <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                Edit
+                ویرایش
             </button>
             <button type="button" disabled={deleteBusy} onClick={onDelete} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60">
                 <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                Delete
+                حذف
             </button>
         </div>
     );
