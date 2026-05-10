@@ -1,3 +1,7 @@
+@import '@fontsource/vazirmatn/400.css';
+@import '@fontsource/vazirmatn/500.css';
+@import '@fontsource/vazirmatn/600.css';
+@import '@fontsource/vazirmatn/700.css';
 @import 'tailwindcss';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -8,8 +12,13 @@
 @source '../**/*.ts';
 
 @theme {
-    --font-sans: Vazirmatn, IRANSans, Tahoma, Arial, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+    --font-sans: 'Vazirmatn', Tahoma, Arial, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
         'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+html,
+body {
+    font-family: 'Vazirmatn', Tahoma, Arial, sans-serif;
 }
 
 html {
@@ -44,8 +53,16 @@ body {
 button,
 input,
 textarea,
-select {
+select,
+table {
+    font-family: inherit;
     letter-spacing: 0;
+}
+
+.recharts-wrapper,
+.recharts-wrapper text,
+.recharts-tooltip-wrapper {
+    font-family: inherit;
 }
 
 input,
