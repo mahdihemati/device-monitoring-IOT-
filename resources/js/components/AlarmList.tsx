@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, CircleAlert } from 'lucide-react';
 import type { Alarm, AlarmSeverity } from '../types';
 import { formatAlarmType, formatDateTime } from '../utils/format';
-import { severityLabels } from '../utils/localization';
+import { alarmCodeLabel, severityLabels } from '../utils/localization';
 import { EmptyState } from './StateBlocks';
 
 interface AlarmListProps {
@@ -65,6 +65,7 @@ function AlarmRow({
 }) {
     const SeverityIcon = severityIcons[alarm.severity];
     const severityLabel = severityLabels[alarm.severity];
+    const title = alarmCodeLabel(alarm.code) ?? formatAlarmType(alarm.type);
 
     return (
         <article className="grid gap-3 px-4 py-4 transition hover:bg-slate-50/80 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
@@ -74,7 +75,12 @@ function AlarmRow({
                         <SeverityIcon className="h-3.5 w-3.5" aria-hidden="true" />
                         {severityLabel}
                     </span>
-                    <span className="text-sm font-semibold text-slate-950">{formatAlarmType(alarm.type)}</span>
+                    {alarm.code ? (
+                        <span className="inline-flex min-h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 font-mono text-xs font-bold text-slate-700" dir="ltr">
+                            {alarm.code}
+                        </span>
+                    ) : null}
+                    <span className="text-sm font-semibold text-slate-950">{title}</span>
                     {alarm.is_resolved ? (
                         <span className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700">
                             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -86,7 +92,7 @@ function AlarmRow({
                 {showDevice ? (
                     <p className="mt-2 truncate text-sm font-medium text-slate-700">
                         {alarm.device.name}
-                        <span className="me-2 font-mono text-xs text-slate-500">{alarm.device.device_code}</span>
+                        <span className="me-2 font-mono text-xs text-slate-500" dir="ltr">{alarm.device.device_code}</span>
                     </p>
                 ) : null}
 

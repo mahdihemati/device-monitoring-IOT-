@@ -37,6 +37,25 @@ export const alarmTypeLabels: Record<AlarmType, string> = {
     INVALID_SENSOR_READING: 'داده نامعتبر سنسور',
 };
 
+const alarmCodeLabels: Record<string, string> = {
+    ot1: 'دمای بالای سنسور ۱',
+    ot2: 'دمای بالای سنسور ۲',
+    ot3: 'دمای بالای سنسور ۳',
+    ot4: 'دمای بالای سنسور ۴',
+    ut1: 'دمای پایین سنسور ۱',
+    ut2: 'دمای پایین سنسور ۲',
+    ut3: 'دمای پایین سنسور ۳',
+    ut4: 'دمای پایین سنسور ۴',
+    pf: 'خطای PF',
+    DOOR: 'هشدار درب',
+    OFFLINE: 'آفلاین بودن یخچال',
+    INVALID_SENSOR: 'داده نامعتبر سنسور',
+};
+
+export function alarmCodeLabel(value: string | null): string | null {
+    return value ? alarmCodeLabels[value] ?? value : null;
+}
+
 export function statusValueLabel(value: string | null, type: 'door' | 'pf'): string {
     const normalized = value?.trim().toLowerCase() ?? '';
 

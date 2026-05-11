@@ -143,6 +143,15 @@ export function DashboardPage() {
 
     const statusCounts = useMemo(() => countRefrigeratorStatuses(devices), [devices]);
     const overviewState = useMemo(() => getOverviewState(devices.length, statusCounts), [devices.length, statusCounts]);
+    const activeAlarmsByDeviceId = useMemo(() => {
+        const grouped = new Map<number, Alarm[]>();
+
+        for (const alarm of activeAlarms) {
+            grouped.set(alarm.device_id, [...(grouped.get(alarm.device_id) ?? []), alarm]);
+        }
+
+        return grouped;
+    }, [activeAlarms]);
 
     if (loading) {
         return <LoadingState label="در حال بارگذاری یخچال‌ها" />;
@@ -255,7 +264,7 @@ export function DashboardPage() {
                     ) : (
                         <div className="grid gap-4 lg:grid-cols-2">
                             {devices.map((device) => (
-                                <DeviceSummaryCard key={device.id} device={device} />
+                                <DeviceSummaryCard key={device.id} device={device} activeAlarms={activeAlarmsByDeviceId.get(device.id) ?? []} />
                             ))}
                         </div>
                     )}

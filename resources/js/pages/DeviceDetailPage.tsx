@@ -19,7 +19,7 @@ import { useOnlineStatus } from '../components/PwaStatus';
 import { EmptyState, ErrorBanner, LoadingState } from '../components/StateBlocks';
 import { StatusBadge } from '../components/StatusBadge';
 import type { Alarm, Device, Telemetry } from '../types';
-import { chartTime, formatLongDateTime, formatTemperature } from '../utils/format';
+import { chartTime, formatLongDateTime, formatTemperature, formatTemperatureDelta, formatTime } from '../utils/format';
 import { formatCount, statusLabels } from '../utils/localization';
 import { getRefrigeratorStatus } from '../utils/refrigeratorStatus';
 
@@ -37,6 +37,12 @@ const historyPresetOptions: Array<{ value: HistoryPreset; label: string }> = [
     { value: '7d', label: '۷ روز اخیر' },
     { value: 'custom', label: 'بازه دلخواه' },
 ];
+const sensorConfigs = [
+    { label: 'سنسور ۱', key: 'temperature_1' },
+    { label: 'سنسور ۲', key: 'temperature_2' },
+    { label: 'سنسور ۳', key: 'temperature_3' },
+    { label: 'سنسور ۴', key: 'temperature_4' },
+] as const;
 
 function toDateTimeLocalInput(date: Date): string {
     const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60_000));
@@ -238,6 +244,7 @@ export function DeviceDetailPage() {
 
     const status = getRefrigeratorStatus(device);
     const latestRecordedAt = latest?.recorded_at ?? device.last_seen_at;
+    const previousTelemetry = device.previous_telemetry ?? history.find((item) => item.id !== latest?.id) ?? null;
 
     return (
         <div className="space-y-6">
@@ -302,10 +309,21 @@ export function DeviceDetailPage() {
                 ) : null}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                    <MetricTile label="سنسور ۱" value={formatTemperature(latest?.temperature_1 ?? null)} helper="مقدار فعلی" emphasis />
-                    <MetricTile label="سنسور ۲" value={formatTemperature(latest?.temperature_2 ?? null)} helper="مقدار فعلی" emphasis />
-                    <MetricTile label="سنسور ۳" value={formatTemperature(latest?.temperature_3 ?? null)} helper="مقدار فعلی" emphasis />
-                    <MetricTile label="سنسور ۴" value={formatTemperature(latest?.temperature_4 ?? null)} helper="مقدار فعلی" emphasis />
+                    {sensorConfigs.map((sensor) => {
+                        const value = latest?.[sensor.key] ?? null;
+                        const previousValue = previousTelemetry?.[sensor.key] ?? null;
+                        const delta = value !== null && previousValue !== null ? value - previousValue : null;
+
+                        return (
+                            <SensorReadingCard
+                                key={sensor.key}
+                                label={sensor.label}
+                                value={value}
+                                delta={delta}
+                                recordedAt={latestRecordedAt}
+                            />
+                        );
+                    })}
                     <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 shadow-sm ring-1 ring-white">
                         <p className="text-xs font-semibold text-slate-500">وضعیت درب</p>
                         <div className="mt-3">
@@ -533,6 +551,29 @@ export function DeviceDetailPage() {
                     </div>
                 )}
             </section>
+        </div>
+    );
+}
+
+function SensorReadingCard({
+    label,
+    value,
+    delta,
+    recordedAt,
+}: {
+    label: string;
+    value: number | null;
+    delta: number | null;
+    recordedAt: string | null;
+}) {
+    return (
+        <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 shadow-sm ring-1 ring-white">
+            <p className="text-xs font-semibold text-slate-500">{label}</p>
+            <p className="mt-2 text-3xl font-bold leading-none text-slate-950" dir="ltr">{formatTemperature(value)}</p>
+            <p className="mt-3 text-xs font-medium leading-5 text-slate-500">
+                تغییر نسبت به رکورد قبل: <span dir="ltr">{formatTemperatureDelta(delta)}</span>
+            </p>
+            <p className="text-xs font-medium leading-5 text-slate-500">آخرین دریافت: {formatTime(recordedAt)}</p>
         </div>
     );
 }

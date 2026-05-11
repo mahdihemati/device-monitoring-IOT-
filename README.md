@@ -95,20 +95,21 @@ npm run build
 
 ## تست دریافت تله‌متری با curl
 
+نمونه payload واقعی کارخانه از فیلد `id` برای شناسه ماژول استفاده می‌کند. این مقدار باید دقیقا با `device_code` همان یخچال در پنل مدیر برابر باشد:
+
 ```bash
 curl -X POST http://localhost:8000/api/ingest/telemetry \
   -H "Content-Type: application/json" \
   -H "Accept: application/json" \
   -H "X-Ingestion-Secret: change-this-local-secret" \
   -d '{
-    "device_code": "device-001",
-    "temperature_1": 4.5,
-    "temperature_2": 4.6,
-    "temperature_3": 4.7,
-    "temperature_4": 4.8,
-    "door_status": "closed",
-    "pf_status": "normal",
-    "timestamp": "2026-05-07T10:20:00Z"
+    "id": "device-001",
+    "temp1": 23.5,
+    "temp2": 24.0,
+    "temp3": 22.8,
+    "temp4": 23.1,
+    "door": false,
+    "pf": true
   }'
 ```
 
@@ -135,21 +136,6 @@ curl -X POST http://localhost:8000/api/ingest/telemetry \
 
 فرانت‌اند مستقیم به MQTT وصل نمی‌شود. پیام‌های MQTT سمت سرور دریافت شده و از همان سرویس دریافت تله‌متری ذخیره می‌شوند.
 
-نمونه تنظیمات:
-
-```dotenv
-MQTT_HOST=127.0.0.1
-MQTT_PORT=1883
-MQTT_USERNAME=
-MQTT_PASSWORD=
-MQTT_CLIENT_ID=blood-refrigerator-monitor
-MQTT_TOPIC=devices/+/telemetry
-MQTT_QOS=0
-MQTT_KEEP_ALIVE=60
-MQTT_USE_TLS=false
-MQTT_DEVICE_CODE_TOPIC_REGEX=
-```
-
 اجرای listener در محیط محلی:
 
 ```bash
@@ -162,6 +148,90 @@ php artisan mqtt:listen
 php artisan mqtt:listen --once
 ```
 
+## یکپارچه‌سازی MQTT کارخانه
+
+تنظیمات اعلام‌شده کارخانه:
+
+- Host: `185.105.239.74`
+- Port: `1883`
+- Protocol: MQTT over TCP
+- TLS/SSL: غیرفعال
+- Topic: `v1/devices/me/telemetry`
+- Authentication: مبتنی بر token از `.env`
+- فاصله ارسال دستگاه: هر ۵ ثانیه
+
+نمونه تنظیمات امن در `.env`:
+
+```dotenv
+MQTT_HOST=185.105.239.74
+MQTT_PORT=1883
+MQTT_USERNAME=
+MQTT_PASSWORD=
+MQTT_AUTH_TOKEN=
+MQTT_CLIENT_ID=blood-refrigerator-monitor
+MQTT_TOPIC=v1/devices/me/telemetry
+MQTT_QOS=0
+MQTT_KEEP_ALIVE=60
+MQTT_USE_TLS=false
+DOOR_TRUE_MEANS_OPEN=true
+PF_TRUE_MEANS_FAULT=true
+OFFLINE_AFTER_SECONDS=30
+```
+
+مقدار واقعی `MQTT_AUTH_TOKEN` نباید در سورس یا README ثبت شود. listener در صورت وجود `MQTT_AUTH_TOKEN` آن را به‌عنوان username اتصال MQTT و password خالی استفاده می‌کند، چون برخی کتابخانه‌ها token را از همین مسیر ارسال می‌کنند.
+
+نمونه JSON کارخانه:
+
+```json
+{
+  "id": "123456",
+  "temp1": 23.5,
+  "temp2": 24.0,
+  "temp3": 22.8,
+  "temp4": 23.1,
+  "door": false,
+  "pf": true
+}
+```
+
+نگاشت payload:
+
+| فیلد کارخانه | فیلد سامانه | توضیح |
+| --- | --- | --- |
+| `id` | `device_code` | شناسه ماژول؛ باید در پنل مدیر برای همان یخچال ثبت شود |
+| `temp1` تا `temp4` | `temperature_1` تا `temperature_4` | دمای چهار سنسور |
+| `door` | `door_status` | پیش‌فرض: `true` یعنی درب باز |
+| `pf` | `pf_status` | پیش‌فرض: `true` یعنی قطع برق یا خطا |
+
+معنی booleanها بدون تغییر کد قابل تنظیم است:
+
+```dotenv
+DOOR_TRUE_MEANS_OPEN=true
+PF_TRUE_MEANS_FAULT=true
+```
+
+با توجه به ارسال هر ۵ ثانیه، مقدار پیشنهادی آفلاین‌شدن ۲۰ تا ۳۰ ثانیه است. پروژه `OFFLINE_AFTER_SECONDS` را پشتیبانی می‌کند و `OFFLINE_AFTER_MINUTES` فقط fallback سازگار با نسخه قبلی است:
+
+```dotenv
+OFFLINE_AFTER_SECONDS=30
+OFFLINE_AFTER_MINUTES=1
+```
+
+کدهای هشدار کارخانه:
+
+| کد | معنی |
+| --- | --- |
+| `ot1` | دمای سنسور ۱ بالاتر از حد مجاز |
+| `ot2` | دمای سنسور ۲ بالاتر از حد مجاز |
+| `ot3` | دمای سنسور ۳ بالاتر از حد مجاز |
+| `ot4` | دمای سنسور ۴ بالاتر از حد مجاز |
+| `ut1` | دمای سنسور ۱ پایین‌تر از حد مجاز |
+| `ut2` | دمای سنسور ۲ پایین‌تر از حد مجاز |
+| `ut3` | دمای سنسور ۳ پایین‌تر از حد مجاز |
+| `ut4` | دمای سنسور ۴ پایین‌تر از حد مجاز |
+| `pf` | قطع برق یا خطای PF |
+| `DOOR` | هشدار درب |
+
 فرمت‌های پیش‌فرض تاپیک برای استخراج کد دستگاه:
 
 - `refrigerators/{device_code}/telemetry`
@@ -169,6 +239,13 @@ php artisan mqtt:listen --once
 - `clients/{client_code}/refrigerators/{device_code}/telemetry`
 
 برای فرمت اختصاصی، `MQTT_DEVICE_CODE_TOPIC_REGEX` را با یک گروه `device_code` تنظیم کنید.
+
+نکته مهم عملیاتی: دستگاه روی `v1/devices/me/telemetry` publish می‌کند. backend فقط وقتی می‌تواند روی همین topic subscribe کند که broker اجازه subscriber سمت سرور را با token/credential داده‌شده بدهد. اگر token فقط مخصوص publish دستگاه باشد، production باید یکی از روش‌های زیر را استفاده کند:
+
+- broker-side bridge یا webhook
+- Node-RED
+- ThingsBoard/API forwarding
+- forwarding از endpoint کارخانه به `POST /api/ingest/telemetry`
 
 ## حالت‌های production برای MQTT
 
@@ -252,7 +329,7 @@ Service worker فقط assetهای استاتیک و صفحه آفلاین را c
 
 ## تنظیم payload واقعی
 
-parser فعلی فرمت اصلی و چند نام جایگزین را می‌پذیرد. پس از دریافت نمونه JSON واقعی دستگاه‌ها، در صورت نیاز فقط mapping این فایل را تنظیم کنید:
+ساختار واقعی payload کارخانه در parser پیاده‌سازی شده است و فرمت‌های جایگزین قبلی هم حفظ شده‌اند. نکته اصلی این است که مقدار `id` در payload کارخانه باید با `devices.device_code` برابر باشد. در صورت تغییر firmware یا اضافه‌شدن نام فیلد جدید، mapping این فایل قابل تنظیم است:
 
 ```text
 app/Services/Telemetry/TelemetryPayloadParser.php

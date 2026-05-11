@@ -17,12 +17,21 @@ class Alarm extends Model
     public const TYPE_DEVICE_OFFLINE = 'DEVICE_OFFLINE';
     public const TYPE_INVALID_SENSOR_READING = 'INVALID_SENSOR_READING';
 
+    public const CODE_HIGH_TEMPERATURE_PREFIX = 'ot';
+    public const CODE_LOW_TEMPERATURE_PREFIX = 'ut';
+    public const CODE_PF_FAULT = 'pf';
+    public const CODE_DOOR_OPEN = 'DOOR';
+    public const CODE_DEVICE_OFFLINE = 'OFFLINE';
+    public const CODE_INVALID_SENSOR_READING = 'INVALID_SENSOR';
+
     public const SEVERITY_WARNING = 'warning';
     public const SEVERITY_CRITICAL = 'critical';
 
     protected $fillable = [
         'device_id',
         'type',
+        'code',
+        'sensor_number',
         'severity',
         'message',
         'value',
@@ -37,6 +46,7 @@ class Alarm extends Model
         return [
             'value' => 'float',
             'threshold' => 'float',
+            'sensor_number' => 'integer',
             'is_resolved' => 'boolean',
             'resolved_at' => 'datetime',
             'triggered_at' => 'datetime',

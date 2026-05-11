@@ -147,7 +147,7 @@ class DeviceMonitoringApiTest extends TestCase
         $this->assertSame($device->id, $telemetry->device_id);
         $this->assertSame(24.5, $telemetry->temperature_1);
         $this->assertSame('open', $telemetry->door_status);
-        $this->assertSame('fault', $telemetry->pf_status);
+        $this->assertSame('normal', $telemetry->pf_status);
 
         $device->refresh();
 
@@ -197,6 +197,52 @@ class DeviceMonitoringApiTest extends TestCase
         $this->assertSame('fault', $data->pfStatus);
     }
 
+    public function test_parser_accepts_real_factory_payload_format(): void
+    {
+        $data = app(TelemetryPayloadParser::class)->parse([
+            'id' => '123456',
+            'temp1' => 23.5,
+            'temp2' => 24.0,
+            'temp3' => 22.8,
+            'temp4' => 23.1,
+            'door' => false,
+            'pf' => true,
+        ]);
+
+        $this->assertSame('123456', $data->deviceCode);
+        $this->assertSame(23.5, $data->temperature1);
+        $this->assertSame(24.0, $data->temperature2);
+        $this->assertSame(22.8, $data->temperature3);
+        $this->assertSame(23.1, $data->temperature4);
+        $this->assertSame('closed', $data->doorStatus);
+        $this->assertSame('fault', $data->pfStatus);
+    }
+
+    public function test_parser_boolean_status_meanings_are_configurable(): void
+    {
+        config([
+            'alarms.door_true_means_open' => false,
+            'alarms.pf_true_means_fault' => false,
+        ]);
+
+        $trueData = app(TelemetryPayloadParser::class)->parse([
+            'id' => 'config-device-true',
+            'door' => true,
+            'pf' => true,
+        ]);
+
+        $falseData = app(TelemetryPayloadParser::class)->parse([
+            'id' => 'config-device-false',
+            'door' => false,
+            'pf' => false,
+        ]);
+
+        $this->assertSame('closed', $trueData->doorStatus);
+        $this->assertSame('normal', $trueData->pfStatus);
+        $this->assertSame('open', $falseData->doorStatus);
+        $this->assertSame('fault', $falseData->pfStatus);
+    }
+
     public function test_parser_can_use_topic_derived_device_code(): void
     {
         $data = app(TelemetryPayloadParser::class)->parse([
@@ -243,12 +289,84 @@ class DeviceMonitoringApiTest extends TestCase
         ]);
     }
 
+    public function test_http_ingestion_accepts_real_factory_payload(): void
+    {
+        config(['services.ingestion.secret' => 'test-secret']);
+
+        [$customer] = $this->makeCustomerUser('factory-payload-user');
+
+        $device = Device::query()->create([
+            'customer_id' => $customer->id,
+            'device_code' => '123456',
+            'name' => 'Factory Payload Refrigerator',
+        ]);
+
+        $this->withHeader('X-Ingestion-Secret', 'test-secret')
+            ->postJson('/api/ingest/telemetry', [
+                'id' => '123456',
+                'temp1' => 23.5,
+                'temp2' => 24.0,
+                'temp3' => 22.8,
+                'temp4' => 23.1,
+                'door' => false,
+                'pf' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('device_id', $device->id);
+
+        $this->assertDatabaseHas('telemetry', [
+            'device_id' => $device->id,
+            'temperature_1' => 23.5,
+            'temperature_2' => 24.0,
+            'temperature_3' => 22.8,
+            'temperature_4' => 23.1,
+            'door_status' => 'closed',
+            'pf_status' => 'fault',
+        ]);
+
+        $this->assertDatabaseHas('alarms', [
+            'device_id' => $device->id,
+            'code' => Alarm::CODE_PF_FAULT,
+            'type' => Alarm::TYPE_PF_FAULT,
+            'is_resolved' => false,
+        ]);
+    }
+
     public function test_mqtt_message_handler_ignores_invalid_json_without_crashing(): void
     {
         $result = app(MqttTelemetryMessageHandler::class)->handle('devices/device-001/telemetry', '{"device_code":');
 
         $this->assertSame('ignored', $result->status);
         $this->assertStringContainsString('Invalid JSON', $result->message);
+    }
+
+    public function test_mqtt_message_handler_accepts_real_factory_payload(): void
+    {
+        [$customer] = $this->makeCustomerUser('factory-mqtt-user');
+
+        $device = Device::query()->create([
+            'customer_id' => $customer->id,
+            'device_code' => '123456',
+            'name' => 'Factory MQTT Refrigerator',
+        ]);
+
+        $result = app(MqttTelemetryMessageHandler::class)->handle('v1/devices/me/telemetry', json_encode([
+            'id' => '123456',
+            'temp1' => 23.5,
+            'temp2' => 24.0,
+            'temp3' => 22.8,
+            'temp4' => 23.1,
+            'door' => false,
+            'pf' => true,
+        ], JSON_THROW_ON_ERROR));
+
+        $this->assertSame('stored', $result->status);
+        $this->assertDatabaseHas('telemetry', [
+            'device_id' => $device->id,
+            'temperature_1' => 23.5,
+            'door_status' => 'closed',
+            'pf_status' => 'fault',
+        ]);
     }
 
     public function test_mqtt_message_handler_reports_unknown_device_without_crashing(): void
@@ -465,6 +583,8 @@ class DeviceMonitoringApiTest extends TestCase
         $this->assertDatabaseHas('alarms', [
             'device_id' => $device->id,
             'type' => Alarm::TYPE_HIGH_TEMPERATURE,
+            'code' => 'ot1',
+            'sensor_number' => 1,
             'severity' => Alarm::SEVERITY_CRITICAL,
             'is_resolved' => false,
         ]);
@@ -484,9 +604,67 @@ class DeviceMonitoringApiTest extends TestCase
         $this->assertDatabaseHas('alarms', [
             'device_id' => $device->id,
             'type' => Alarm::TYPE_LOW_TEMPERATURE,
+            'code' => 'ut2',
+            'sensor_number' => 2,
             'severity' => Alarm::SEVERITY_CRITICAL,
             'is_resolved' => false,
         ]);
+    }
+
+    public function test_per_sensor_high_temperature_alarms_can_exist_together(): void
+    {
+        $device = $this->makeDeviceForIngestion();
+
+        $this->ingestTelemetry($device, [
+            'temperature_1' => 7.5,
+            'temperature_2' => 8.1,
+            'temperature_3' => 8.4,
+            'temperature_4' => 8.7,
+        ]);
+
+        foreach (['ot1', 'ot2', 'ot3', 'ot4'] as $index => $code) {
+            $this->assertDatabaseHas('alarms', [
+                'device_id' => $device->id,
+                'type' => Alarm::TYPE_HIGH_TEMPERATURE,
+                'code' => $code,
+                'sensor_number' => $index + 1,
+                'is_resolved' => false,
+            ]);
+        }
+
+        $this->assertSame(4, Alarm::query()
+            ->where('device_id', $device->id)
+            ->where('type', Alarm::TYPE_HIGH_TEMPERATURE)
+            ->where('is_resolved', false)
+            ->count());
+    }
+
+    public function test_per_sensor_low_temperature_alarms_can_exist_together(): void
+    {
+        $device = $this->makeDeviceForIngestion();
+
+        $this->ingestTelemetry($device, [
+            'temperature_1' => 1.5,
+            'temperature_2' => 1.4,
+            'temperature_3' => 1.3,
+            'temperature_4' => 1.2,
+        ]);
+
+        foreach (['ut1', 'ut2', 'ut3', 'ut4'] as $index => $code) {
+            $this->assertDatabaseHas('alarms', [
+                'device_id' => $device->id,
+                'type' => Alarm::TYPE_LOW_TEMPERATURE,
+                'code' => $code,
+                'sensor_number' => $index + 1,
+                'is_resolved' => false,
+            ]);
+        }
+
+        $this->assertSame(4, Alarm::query()
+            ->where('device_id', $device->id)
+            ->where('type', Alarm::TYPE_LOW_TEMPERATURE)
+            ->where('is_resolved', false)
+            ->count());
     }
 
     public function test_alarm_is_created_for_door_open(): void
@@ -500,6 +678,7 @@ class DeviceMonitoringApiTest extends TestCase
         $this->assertDatabaseHas('alarms', [
             'device_id' => $device->id,
             'type' => Alarm::TYPE_DOOR_OPEN,
+            'code' => Alarm::CODE_DOOR_OPEN,
             'severity' => Alarm::SEVERITY_WARNING,
             'is_resolved' => false,
         ]);
@@ -516,6 +695,7 @@ class DeviceMonitoringApiTest extends TestCase
         $this->assertDatabaseHas('alarms', [
             'device_id' => $device->id,
             'type' => Alarm::TYPE_PF_FAULT,
+            'code' => Alarm::CODE_PF_FAULT,
             'severity' => Alarm::SEVERITY_WARNING,
             'is_resolved' => false,
         ]);
@@ -530,13 +710,13 @@ class DeviceMonitoringApiTest extends TestCase
 
         $this->assertSame(1, Alarm::query()
             ->where('device_id', $device->id)
-            ->where('type', Alarm::TYPE_HIGH_TEMPERATURE)
+            ->where('code', 'ot1')
             ->where('is_resolved', false)
             ->count());
 
         $alarm = Alarm::query()
             ->where('device_id', $device->id)
-            ->where('type', Alarm::TYPE_HIGH_TEMPERATURE)
+            ->where('code', 'ot1')
             ->where('is_resolved', false)
             ->firstOrFail();
 
@@ -552,7 +732,7 @@ class DeviceMonitoringApiTest extends TestCase
 
         $alarm = Alarm::query()
             ->where('device_id', $device->id)
-            ->where('type', Alarm::TYPE_HIGH_TEMPERATURE)
+            ->where('code', 'ot1')
             ->firstOrFail();
 
         $this->assertTrue($alarm->is_resolved);

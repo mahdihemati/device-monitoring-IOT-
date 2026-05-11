@@ -9,8 +9,8 @@ interface RefrigeratorStatus {
     detail: string;
 }
 
-const OFFLINE_AFTER_MINUTES = 10;
-const OFFLINE_AFTER_MS = OFFLINE_AFTER_MINUTES * 60 * 1000;
+const OFFLINE_AFTER_SECONDS = 30;
+const OFFLINE_AFTER_MS = OFFLINE_AFTER_SECONDS * 1000;
 
 function normalize(value: string | null): string {
     return value?.trim().toLowerCase() ?? '';
@@ -62,7 +62,7 @@ export function getRefrigeratorStatus(device: Device): RefrigeratorStatus {
         return {
             level: 'offline',
             label: statusLabels.offline,
-            detail: `در ${toPersianNumber(OFFLINE_AFTER_MINUTES)} دقیقه اخیر داده‌ای دریافت نشده است`,
+            detail: `در ${toPersianNumber(OFFLINE_AFTER_SECONDS)} ثانیه اخیر داده‌ای دریافت نشده است`,
         };
     }
 
@@ -127,7 +127,7 @@ function matchStatus(level: OverallStatus, alarmDetail: string): RefrigeratorSta
             return {
                 level,
                 label: statusLabels.offline,
-                detail: alarmDetail === alarmCountText(0) ? `در ${toPersianNumber(OFFLINE_AFTER_MINUTES)} دقیقه اخیر داده‌ای دریافت نشده است` : alarmDetail,
+                detail: alarmDetail === alarmCountText(0) ? `در ${toPersianNumber(OFFLINE_AFTER_SECONDS)} ثانیه اخیر داده‌ای دریافت نشده است` : alarmDetail,
             };
     }
 }

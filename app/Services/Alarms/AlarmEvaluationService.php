@@ -26,6 +26,7 @@ class AlarmEvaluationService
             $this->activate(
                 device: $device,
                 type: Alarm::TYPE_DEVICE_OFFLINE,
+                code: Alarm::CODE_DEVICE_OFFLINE,
                 severity: Alarm::SEVERITY_CRITICAL,
                 message: 'یخچال آفلاین است یا در بازه اخیر داده‌ای ارسال نکرده است.',
                 triggeredAt: now(),
@@ -34,7 +35,7 @@ class AlarmEvaluationService
             return;
         }
 
-        $this->resolve($device, Alarm::TYPE_DEVICE_OFFLINE);
+        $this->resolve($device, Alarm::TYPE_DEVICE_OFFLINE, code: Alarm::CODE_DEVICE_OFFLINE);
     }
 
     /**
@@ -53,7 +54,7 @@ class AlarmEvaluationService
             return true;
         }
 
-        return $device->last_seen_at->lt(now()->subMinutes($this->offlineAfterMinutes()));
+        return $device->last_seen_at->lt(now()->subSeconds($this->offlineAfterSeconds()));
     }
 
     public function overallStatus(Device $device): string
@@ -110,50 +111,41 @@ class AlarmEvaluationService
         $max = $this->maxTemperature();
         $min = $this->minTemperature();
 
-        $highReadings = collect($readings)
-            ->filter(fn (?float $value): bool => $value !== null && $value > $max);
+        foreach ($readings as $sensorNumber => $value) {
+            $highCode = Alarm::CODE_HIGH_TEMPERATURE_PREFIX.$sensorNumber;
+            $lowCode = Alarm::CODE_LOW_TEMPERATURE_PREFIX.$sensorNumber;
 
-        if ($highReadings->isNotEmpty()) {
-            $highest = $highReadings->max();
-            $this->activate(
-                device: $device,
-                type: Alarm::TYPE_HIGH_TEMPERATURE,
-                severity: Alarm::SEVERITY_CRITICAL,
-                message: sprintf(
-                    'دمای بالا در %s. بیشترین مقدار %.1f درجه از حد %.1f درجه بیشتر است.',
-                    $highReadings->keys()->implode(', '),
-                    $highest,
-                    $max,
-                ),
-                value: $highest,
-                threshold: $max,
-                triggeredAt: $telemetry->recorded_at,
-            );
-        } else {
-            $this->resolve($device, Alarm::TYPE_HIGH_TEMPERATURE);
-        }
+            if ($value !== null && $value > $max) {
+                $this->activate(
+                    device: $device,
+                    type: Alarm::TYPE_HIGH_TEMPERATURE,
+                    code: $highCode,
+                    sensorNumber: $sensorNumber,
+                    severity: Alarm::SEVERITY_CRITICAL,
+                    message: sprintf('دمای سنسور %s بالاتر از حد مجاز است.', $this->persianSensorNumber($sensorNumber)),
+                    value: $value,
+                    threshold: $max,
+                    triggeredAt: $telemetry->recorded_at,
+                );
+            } else {
+                $this->resolve($device, Alarm::TYPE_HIGH_TEMPERATURE, code: $highCode);
+            }
 
-        $lowReadings = collect($readings)
-            ->filter(fn (?float $value): bool => $value !== null && $value < $min);
-
-        if ($lowReadings->isNotEmpty()) {
-            $lowest = $lowReadings->min();
-            $this->activate(
-                device: $device,
-                type: Alarm::TYPE_LOW_TEMPERATURE,
-                severity: Alarm::SEVERITY_CRITICAL,
-                message: sprintf(
-                    'دمای پایین در %s. کمترین مقدار %.1f درجه از حد %.1f درجه کمتر است.',
-                    $lowReadings->keys()->implode(', '),
-                    $lowest,
-                    $min,
-                ),
-                value: $lowest,
-                threshold: $min,
-                triggeredAt: $telemetry->recorded_at,
-            );
-        } else {
-            $this->resolve($device, Alarm::TYPE_LOW_TEMPERATURE);
+            if ($value !== null && $value < $min) {
+                $this->activate(
+                    device: $device,
+                    type: Alarm::TYPE_LOW_TEMPERATURE,
+                    code: $lowCode,
+                    sensorNumber: $sensorNumber,
+                    severity: Alarm::SEVERITY_CRITICAL,
+                    message: sprintf('دمای سنسور %s پایین‌تر از حد مجاز است.', $this->persianSensorNumber($sensorNumber)),
+                    value: $value,
+                    threshold: $min,
+                    triggeredAt: $telemetry->recorded_at,
+                );
+            } else {
+                $this->resolve($device, Alarm::TYPE_LOW_TEMPERATURE, code: $lowCode);
+            }
         }
     }
 
@@ -166,15 +158,16 @@ class AlarmEvaluationService
             $this->activate(
                 device: $device,
                 type: Alarm::TYPE_INVALID_SENSOR_READING,
+                code: Alarm::CODE_INVALID_SENSOR_READING,
                 severity: Alarm::SEVERITY_WARNING,
-                message: sprintf('داده %s موجود نیست یا معتبر نیست.', $missingSensors->keys()->implode(', ')),
+                message: sprintf('داده %s موجود نیست یا معتبر نیست.', $missingSensors->keys()->map(fn (int $sensorNumber): string => 'سنسور '.$this->persianSensorNumber($sensorNumber))->implode(', ')),
                 triggeredAt: $telemetry->recorded_at,
             );
 
             return;
         }
 
-        $this->resolve($device, Alarm::TYPE_INVALID_SENSOR_READING);
+        $this->resolve($device, Alarm::TYPE_INVALID_SENSOR_READING, code: Alarm::CODE_INVALID_SENSOR_READING);
     }
 
     private function evaluateDoor(Device $device, Telemetry $telemetry): void
@@ -182,7 +175,7 @@ class AlarmEvaluationService
         $doorStatus = $this->normalizeStatus($telemetry->door_status);
 
         if (! $this->doorOpenIsAlarm()) {
-            $this->resolve($device, Alarm::TYPE_DOOR_OPEN);
+            $this->resolve($device, Alarm::TYPE_DOOR_OPEN, code: Alarm::CODE_DOOR_OPEN);
 
             return;
         }
@@ -191,6 +184,7 @@ class AlarmEvaluationService
             $this->activate(
                 device: $device,
                 type: Alarm::TYPE_DOOR_OPEN,
+                code: Alarm::CODE_DOOR_OPEN,
                 severity: Alarm::SEVERITY_WARNING,
                 message: 'درب یخچال باز است.',
                 triggeredAt: $telemetry->recorded_at,
@@ -200,7 +194,7 @@ class AlarmEvaluationService
         }
 
         if ($doorStatus === 'closed') {
-            $this->resolve($device, Alarm::TYPE_DOOR_OPEN);
+            $this->resolve($device, Alarm::TYPE_DOOR_OPEN, code: Alarm::CODE_DOOR_OPEN);
         }
     }
 
@@ -215,8 +209,9 @@ class AlarmEvaluationService
             $this->activate(
                 device: $device,
                 type: Alarm::TYPE_PF_FAULT,
+                code: Alarm::CODE_PF_FAULT,
                 severity: $severity,
-                message: sprintf('وضعیت PF در حالت %s است.', $this->statusLabel($pfStatus)),
+                message: 'وضعیت PF نشان‌دهنده قطع برق یا خطا است.',
                 triggeredAt: $telemetry->recorded_at,
             );
 
@@ -224,31 +219,26 @@ class AlarmEvaluationService
         }
 
         if ($pfStatus === 'normal') {
-            $this->resolve($device, Alarm::TYPE_PF_FAULT);
+            $this->resolve($device, Alarm::TYPE_PF_FAULT, code: Alarm::CODE_PF_FAULT);
         }
     }
 
     /**
-     * @return array<string, float|null>
+     * @return array<int, float|null>
      */
     private function sensorReadings(Telemetry $telemetry): array
     {
         return [
-            'سنسور ۱' => $telemetry->temperature_1,
-            'سنسور ۲' => $telemetry->temperature_2,
-            'سنسور ۳' => $telemetry->temperature_3,
-            'سنسور ۴' => $telemetry->temperature_4,
+            1 => $telemetry->temperature_1,
+            2 => $telemetry->temperature_2,
+            3 => $telemetry->temperature_3,
+            4 => $telemetry->temperature_4,
         ];
     }
 
-    private function statusLabel(string $status): string
+    private function persianSensorNumber(int $sensorNumber): string
     {
-        return match ($status) {
-            'warning', 'warn' => 'هشدار',
-            'fault', 'failed', 'failure', 'fail', 'error', 'alarm', 'trip', 'tripped' => 'خطا',
-            'offline' => 'آفلاین',
-            default => $status,
-        };
+        return ['۱', '۲', '۳', '۴'][$sensorNumber - 1] ?? (string) $sensorNumber;
     }
 
     private function activate(
@@ -256,17 +246,19 @@ class AlarmEvaluationService
         string $type,
         string $severity,
         string $message,
+        ?string $code = null,
+        ?int $sensorNumber = null,
         ?float $value = null,
         ?float $threshold = null,
         ?CarbonInterface $triggeredAt = null,
     ): Alarm {
-        $alarm = $device->activeAlarms()
-            ->where('type', $type)
-            ->first();
+        $alarm = $this->alarmIdentityQuery($device, $type, $code, $sensorNumber)->first();
 
         if (! $alarm) {
             return $device->alarms()->create([
                 'type' => $type,
+                'code' => $code,
+                'sensor_number' => $sensorNumber,
                 'severity' => $severity,
                 'message' => $message,
                 'value' => $value,
@@ -276,6 +268,8 @@ class AlarmEvaluationService
         }
 
         $alarm->forceFill([
+            'code' => $code,
+            'sensor_number' => $sensorNumber,
             'severity' => $severity,
             'message' => $message,
             'value' => $value,
@@ -285,14 +279,30 @@ class AlarmEvaluationService
         return $alarm;
     }
 
-    private function resolve(Device $device, string $type): void
+    private function resolve(Device $device, string $type, ?string $code = null, ?int $sensorNumber = null): void
     {
-        $device->activeAlarms()
-            ->where('type', $type)
+        $this->alarmIdentityQuery($device, $type, $code, $sensorNumber)
             ->update([
                 'is_resolved' => true,
                 'resolved_at' => now(),
             ]);
+    }
+
+    private function alarmIdentityQuery(Device $device, string $type, ?string $code = null, ?int $sensorNumber = null)
+    {
+        $query = $device->activeAlarms();
+
+        if ($code !== null) {
+            return $query->where('code', $code);
+        }
+
+        $query->where('type', $type);
+
+        if ($sensorNumber !== null) {
+            return $query->where('sensor_number', $sensorNumber);
+        }
+
+        return $query->whereNull('sensor_number');
     }
 
     private function normalizeStatus(?string $status): string
@@ -315,8 +325,14 @@ class AlarmEvaluationService
         return (bool) config('alarms.door_open_is_alarm', true);
     }
 
-    private function offlineAfterMinutes(): int
+    private function offlineAfterSeconds(): int
     {
-        return max(1, (int) config('alarms.offline_after_minutes', 5));
+        $seconds = config('alarms.offline_after_seconds');
+
+        if ($seconds !== null && (int) $seconds > 0) {
+            return (int) $seconds;
+        }
+
+        return max(1, (int) config('alarms.offline_after_minutes', 1)) * 60;
     }
 }

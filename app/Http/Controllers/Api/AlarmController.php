@@ -95,6 +95,8 @@ class AlarmController extends Controller
             'id' => $alarm->id,
             'device_id' => $alarm->device_id,
             'type' => $alarm->type,
+            'code' => $alarm->code,
+            'sensor_number' => $alarm->sensor_number,
             'severity' => $alarm->severity,
             'message' => $alarm->message,
             'value' => $alarm->value,

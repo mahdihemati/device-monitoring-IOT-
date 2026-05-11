@@ -16,6 +16,7 @@ class TelemetryPayloadParser
      */
     private array $fieldMap = [
         'device_code' => [
+            'id',
             'device_code',
             'device_id',
             'serial',
@@ -43,10 +44,9 @@ class TelemetryPayloadParser
     public function parse(array $payload, ?string $topic = null): ParsedTelemetryData
     {
         $mapped = [];
-        $mappedSources = [];
 
         foreach ($this->fieldMap as $target => $sources) {
-            [$mapped[$target], $mappedSources[$target]] = $this->firstMappedValue($payload, (array) $sources);
+            $mapped[$target] = $this->firstMappedValue($payload, (array) $sources);
         }
 
         if (! filled($mapped['device_code'] ?? null)) {
@@ -71,21 +71,21 @@ class TelemetryPayloadParser
             temperature3: $this->nullableFloat($validated['temperature_3'] ?? null),
             temperature4: $this->nullableFloat($validated['temperature_4'] ?? null),
             doorStatus: $this->normalizeDoorStatus($validated['door_status'] ?? null),
-            pfStatus: $this->normalizePfStatus($validated['pf_status'] ?? null, $mappedSources['pf_status'] ?? null),
+            pfStatus: $this->normalizePfStatus($validated['pf_status'] ?? null),
             recordedAt: $this->nullableTimestamp($validated['timestamp'] ?? null),
             rawPayload: $payload,
         );
     }
 
-    private function firstMappedValue(array $payload, array $sources): array
+    private function firstMappedValue(array $payload, array $sources): mixed
     {
         foreach ($sources as $source) {
             if (Arr::has($payload, $source)) {
-                return [Arr::get($payload, $source), $source];
+                return Arr::get($payload, $source);
             }
         }
 
-        return [null, null];
+        return null;
     }
 
     private function nullableFloat(mixed $value): ?float
@@ -120,13 +120,15 @@ class TelemetryPayloadParser
         }
 
         return match ($status) {
-            '1', 'true', 'yes', 'y', 'on', 'open', 'opened' => 'open',
-            '0', 'false', 'no', 'n', 'off', 'closed', 'close' => 'closed',
+            '1', 'true', 'yes', 'y', 'on' => $this->doorTrueMeansOpen() ? 'open' : 'closed',
+            '0', 'false', 'no', 'n', 'off' => $this->doorTrueMeansOpen() ? 'closed' : 'open',
+            'open', 'opened' => 'open',
+            'closed', 'close' => 'closed',
             default => $status,
         };
     }
 
-    private function normalizePfStatus(mixed $value, ?string $source = null): ?string
+    private function normalizePfStatus(mixed $value): ?string
     {
         $status = $this->statusToken($value);
 
@@ -134,18 +136,11 @@ class TelemetryPayloadParser
             return null;
         }
 
-        if ($source === 'power_failure') {
-            return match ($status) {
-                '1', 'true', 'yes', 'y', 'on', 'fault', 'failed', 'failure', 'fail', 'error', 'alarm', 'trip', 'tripped' => 'fault',
-                '0', 'false', 'no', 'n', 'off', 'ok', 'okay', 'good', 'healthy', 'normal' => 'normal',
-                'warn', 'warning' => 'warning',
-                default => $status,
-            };
-        }
-
         return match ($status) {
-            '1', 'true', 'yes', 'y', 'on', 'ok', 'okay', 'good', 'healthy', 'normal' => 'normal',
-            '0', 'false', 'no', 'n', 'off', 'fault', 'failed', 'failure', 'fail', 'error', 'alarm', 'trip', 'tripped' => 'fault',
+            '1', 'true', 'yes', 'y', 'on' => $this->pfTrueMeansFault() ? 'fault' : 'normal',
+            '0', 'false', 'no', 'n', 'off' => $this->pfTrueMeansFault() ? 'normal' : 'fault',
+            'ok', 'okay', 'good', 'healthy', 'normal' => 'normal',
+            'fault', 'failed', 'failure', 'fail', 'error', 'alarm', 'trip', 'tripped' => 'fault',
             'warn', 'warning' => 'warning',
             default => $status,
         };
@@ -167,5 +162,15 @@ class TelemetryPayloadParser
     private function nullableTimestamp(mixed $value): ?CarbonImmutable
     {
         return filled($value) ? CarbonImmutable::parse($value) : null;
+    }
+
+    private function doorTrueMeansOpen(): bool
+    {
+        return (bool) config('alarms.door_true_means_open', true);
+    }
+
+    private function pfTrueMeansFault(): bool
+    {
+        return (bool) config('alarms.pf_true_means_fault', true);
     }
 }

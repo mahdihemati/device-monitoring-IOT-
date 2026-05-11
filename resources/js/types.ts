@@ -58,6 +58,7 @@ export interface Device {
     notes?: string | null;
     last_seen_at: string | null;
     latest_telemetry: Telemetry | null;
+    previous_telemetry?: Telemetry | null;
     customer?: Customer | null;
     overall_status?: OverallStatus;
     active_alarm_count?: number;
@@ -75,6 +76,8 @@ export interface Alarm {
     id: number;
     device_id: number;
     type: AlarmType;
+    code: string | null;
+    sensor_number: number | null;
     severity: AlarmSeverity;
     message: string;
     value: number | null;

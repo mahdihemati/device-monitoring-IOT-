@@ -122,16 +122,35 @@ class DeviceController extends Controller
 
     private function devicePayload(Device $device): array
     {
+        $latestTelemetry = $device->relationLoaded('latestTelemetry')
+            ? $device->latestTelemetry
+            : $device->latestTelemetry()->first();
+
         return [
             'id' => $device->id,
             'device_code' => $device->device_code,
             'name' => $device->name,
             'serial_number' => $device->serial_number,
             'last_seen_at' => $device->last_seen_at?->toISOString(),
-            'latest_telemetry' => $this->telemetryPayload($device->latestTelemetry),
+            'latest_telemetry' => $this->telemetryPayload($latestTelemetry),
+            'previous_telemetry' => $this->telemetryPayload($this->previousTelemetry($device, $latestTelemetry)),
             'overall_status' => $this->alarmEvaluationService->overallStatus($device),
             'active_alarm_count' => $device->getAttribute('active_alarms_count') ?? $device->activeAlarms()->count(),
         ];
+    }
+
+    private function previousTelemetry(Device $device, ?Telemetry $latestTelemetry): ?Telemetry
+    {
+        if (! $latestTelemetry) {
+            return null;
+        }
+
+        return $device->telemetry()
+            ->whereKeyNot($latestTelemetry->id)
+            ->orderByRaw('recorded_at is null asc')
+            ->latest('recorded_at')
+            ->latest('id')
+            ->first();
     }
 
     private function telemetryPayload(?Telemetry $telemetry): ?array

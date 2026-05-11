@@ -29,9 +29,13 @@ class ListenForMqttTelemetry extends Command
             return self::FAILURE;
         }
 
+        $authToken = trim((string) config('mqtt.auth_token'));
+        $username = $authToken !== '' ? $authToken : config('mqtt.username');
+        $password = $authToken !== '' ? '' : config('mqtt.password');
+
         $settings = (new ConnectionSettings)
-            ->setUsername(config('mqtt.username'))
-            ->setPassword(config('mqtt.password'))
+            ->setUsername($username)
+            ->setPassword($password)
             ->setKeepAliveInterval($config['keep_alive']);
 
         if ($config['use_tls']) {

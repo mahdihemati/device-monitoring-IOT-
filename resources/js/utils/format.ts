@@ -13,6 +13,18 @@ export function formatDateTime(value: string | null): string {
     }).format(new Date(value));
 }
 
+export function formatTime(value: string | null): string {
+    if (! value) {
+        return 'بدون داده';
+    }
+
+    return new Intl.DateTimeFormat('fa-IR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+    }).format(new Date(value));
+}
+
 export function formatLongDateTime(value: string | null): string {
     if (! value) {
         return 'بدون داده';
@@ -26,6 +38,20 @@ export function formatLongDateTime(value: string | null): string {
         minute: '2-digit',
         second: '2-digit',
     }).format(new Date(value));
+}
+
+export function formatTemperatureDelta(value: number | null): string {
+    if (value === null) {
+        return 'بدون داده';
+    }
+
+    const formatted = new Intl.NumberFormat('fa-IR', {
+        signDisplay: 'always',
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+    }).format(value);
+
+    return `${formatted} °C`;
 }
 
 export function formatTemperature(value: number | null): string {
