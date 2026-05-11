@@ -66,6 +66,14 @@ php artisan migrate:fresh --seed
 
 داده نمونه شامل یک مشتری، کاربر مدیر، کاربر مشتری، دو یخچال خون، رکوردهای تله‌متری و چند وضعیت هشدار نمونه است.
 
+## Manual SQL Import
+
+روش پیشنهادی نصب دیتابیس همچنان اجرای migrationهای Laravel است. فایل SQL زیر فقط برای import سریع یا دستی روی سرور ارائه شده و شامل schema کامل MySQL و داده دمو بدون اطلاعات واقعی مشتری یا token تولید است.
+
+```bash
+mysql -u USERNAME -p DATABASE_NAME < database/sql/blood_refrigerator_import.sql
+```
+
 ## اجرای محلی
 
 ترمینال اول:
